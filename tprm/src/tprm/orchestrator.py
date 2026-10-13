@@ -41,7 +41,7 @@ from tprm.risk.categorizer import categorize
 from tprm.risk.controls import map_controls
 from tprm.risk.extractor import NormalisedRisk, extract
 from tprm.risk.recommender import recommend
-from tprm.risk.severity import score_severity
+from tprm.risk.severity import SeverityScore, score_severity
 from tprm.sanitize.pipeline import sanitize_pipeline
 from tprm.sanitize.vault import get_vault
 from tprm.sensitivity.levels import score_block, score_document
@@ -59,6 +59,62 @@ def _preview_highlight_color(severity: str) -> tuple[float, float, float]:
         "Medium": (1.0, 0.85, 0.2),
         "Low": (0.35, 0.8, 0.45),
     }.get(severity, (1.0, 0.85, 0.2))
+
+
+def _severity_for_pii_exposure(
+    severity: SeverityScore,
+    entity_types: list[str],
+) -> SeverityScore:
+    """Make direct PII exposure scores reflect the exposed data type."""
+    if not entity_types:
+        return severity
+
+    floors = {
+        "API_KEY": 85,
+        "PEM_PRIVATE_KEY": 85,
+        "CREDENTIAL_URL": 85,
+        "CREDIT_CARD": 82,
+        "US_SSN": 82,
+        "IBAN_CODE": 75,
+        "BANK_ACCOUNT": 75,
+        "DATE_OF_BIRTH": 65,
+        "EMAIL_ADDRESS": 45,
+        "EMPLOYEE_ID": 45,
+        "PHONE_NUMBER": 35,
+        "IP_ADDRESS": 32,
+        "INTERNAL_HOSTNAME": 32,
+        "MAC_ADDRESS": 32,
+        "PERSON": 30,
+        "CONTRACT_NUMBER": 30,
+    }
+    pii_floor = max((floors.get(entity_type, 0) for entity_type in entity_types), default=0)
+    if pii_floor <= severity.score:
+        return severity
+
+    return SeverityScore(
+        score=pii_floor,
+        label=_score_to_severity_label(pii_floor),
+        factors={**severity.factors, "pii_exposure_floor": float(pii_floor)},
+    )
+
+
+def _score_to_severity_label(score: int) -> str:
+    if score >= 75:
+        return "Critical"
+    if score >= 50:
+        return "High"
+    if score >= 25:
+        return "Medium"
+    return "Low"
+
+
+def _entity_title_label(entity_type: str) -> str:
+    label = _ENTITY_LABELS.get(entity_type, entity_type.replace("_", " ").lower())
+    for article in ("an ", "a "):
+        if label.startswith(article):
+            label = label[len(article):]
+            break
+    return label[:1].upper() + label[1:]
 
 
 def _build_pdf_preview(
@@ -322,6 +378,8 @@ async def run_assessment(
         if cb.entities:
             block_entity_types[cb.block.id] = list({e.entity_type for e in cb.entities})
 
+    covered_pii_block_ids: set[str] = set()
+
     for risk in normalised_risks:
         category = categorize(risk)
 
@@ -373,62 +431,150 @@ async def run_assessment(
             )
         )
 
-        section_class = best_block.section_class if best_block else "unknown"
-        section_path  = best_block.section_path  if best_block else []
+        block_groups = [
+            [bid] for bid in evidence_block_ids
+            if entities_by_block.get(bid)
+        ]
 
-        controls = map_controls(risk, section_class, category)
-        gap_status = controls[0].gap_status if controls else "missing"
-        severity = score_severity(
-            risk,
-            category,
-            gap_status=gap_status,
-            vendor_criticality=doc.meta.vendor_criticality,
+        for group_ids in block_groups:
+            if any(bid in covered_pii_block_ids for bid in group_ids):
+                continue
+            group_block = block_index.get(group_ids[0]) if group_ids else best_block
+            section_class = group_block.section_class if group_block else "unknown"
+            section_path = group_block.section_path if group_block else []
+            group_entity_types = sorted({
+                entity.entity_type
+                for bid in group_ids
+                for entity in entities_by_block.get(bid, [])
+            }) or best_entity_types
+
+            controls = map_controls(risk, section_class, category)
+            gap_status = controls[0].gap_status if controls else "missing"
+            severity = score_severity(
+                risk,
+                category,
+                gap_status=gap_status,
+                vendor_criticality=doc.meta.vendor_criticality,
+            )
+            severity = _severity_for_pii_exposure(severity, group_entity_types)
+
+            explicit_desc, section_label_str = _build_explicit_description(
+                risk_title=risk.title,
+                section_path=section_path,
+                section_class=section_class,
+                entity_types=group_entity_types,
+                category=category,
+                original_description=risk.description,
+            )
+
+            finding_title = risk.title
+            if group_entity_types:
+                first_entity = group_entity_types[0]
+                label = _entity_title_label(first_entity)
+                finding_title = f"{label} exposed in {section_label_str}"
+
+            finding = Finding(
+                assessment_id=assessment_id,
+                vendor_id=vendor_id,
+                risk_category=category,
+                severity=severity.label,
+                score=severity.score,
+                score_factors=severity.factors,
+                controls=controls,
+                evidence_block_ids=group_ids,
+                title=finding_title,
+                description=explicit_desc,
+                section_label=section_label_str,
+                entity_types_found=group_entity_types,
+                exposure_count=sum(
+                    len(entities_by_block.get(bid, []))
+                    for bid in group_ids
+                ),
+                evidence_passages=[
+                    {
+                        "block_id": bid,
+                        "page": source_block_index[bid].page,
+                        "section_label": " > ".join(source_block_index[bid].section_path),
+                        "text": source_block_index[bid].text,
+                        "entity_types": block_entity_types.get(bid, []),
+                        "detected_entities": [
+                            {
+                                "entity_type": entity.entity_type,
+                                "value": entity.text,
+                            }
+                            for entity in entities_by_block.get(bid, [])
+                        ],
+                    }
+                    for bid in group_ids
+                    if bid in block_index and bid in source_block_index
+                ],
+            )
+            finding.recommendation = recommend(finding)
+            findings.append(finding)
+            covered_pii_block_ids.update(group_ids)
+
+    for block_id, block_entities in entities_by_block.items():
+        if block_id in covered_pii_block_ids or block_id not in block_index:
+            continue
+
+        group_block = block_index[block_id]
+        section_class = group_block.section_class
+        section_path = group_block.section_path
+        group_entity_types = sorted({entity.entity_type for entity in block_entities})
+        severity = _severity_for_pii_exposure(
+            SeverityScore(
+                score=0,
+                label="Low",
+                factors={
+                    "likelihood": 0.0,
+                    "impact": 0.0,
+                    "control_gap_factor": 1.0,
+                    "vendor_criticality": doc.meta.vendor_criticality,
+                    "booster": 0.0,
+                },
+            ),
+            group_entity_types,
         )
-
-        # Generate a section-aware, explicit description
         explicit_desc, section_label_str = _build_explicit_description(
-            risk_title=risk.title,
+            risk_title="Sensitive data exposure",
             section_path=section_path,
             section_class=section_class,
-            entity_types=best_entity_types,
-            category=category,
-            original_description=risk.description,
+            entity_types=group_entity_types,
+            category="PRIVACY_DATA",
+            original_description="Sensitive data was detected in the document.",
         )
-
+        first_entity = group_entity_types[0] if group_entity_types else "sensitive data"
         finding = Finding(
             assessment_id=assessment_id,
             vendor_id=vendor_id,
-            risk_category=category,
+            risk_category="PRIVACY_DATA",
             severity=severity.label,
             score=severity.score,
             score_factors=severity.factors,
-            controls=controls,
-            evidence_block_ids=evidence_block_ids,
-            title=risk.title,
+            controls=[],
+            evidence_block_ids=[block_id],
+            title=f"{_entity_title_label(first_entity)} exposed in {section_label_str}",
             description=explicit_desc,
             section_label=section_label_str,
-            entity_types_found=best_entity_types,
-            exposure_count=sum(
-                len(entities_by_block.get(bid, []))
-                for bid in evidence_block_ids
-            ),
+            entity_types_found=group_entity_types,
+            exposure_count=len(block_entities),
             evidence_passages=[
                 {
-                    "block_id": bid,
-                    "page": source_block_index[bid].page,
-                    "section_label": " > ".join(source_block_index[bid].section_path),
-                    "text": block_index[bid].text_sanitized,
-                    "entity_types": block_entity_types.get(bid, []),
+                    "block_id": block_id,
+                    "page": source_block_index[block_id].page if block_id in source_block_index else 0,
+                    "section_label": " > ".join(source_block_index[block_id].section_path)
+                    if block_id in source_block_index else "",
+                    "text": source_block_index[block_id].text
+                    if block_id in source_block_index else group_block.text_sanitized,
+                    "entity_types": group_entity_types,
                     "detected_entities": [
                         {
                             "entity_type": entity.entity_type,
                             "value": entity.text,
                         }
-                        for entity in entities_by_block.get(bid, [])
+                        for entity in block_entities
                     ],
                 }
-                for bid in evidence_block_ids
-                if bid in block_index and bid in source_block_index
             ],
         )
         finding.recommendation = recommend(finding)

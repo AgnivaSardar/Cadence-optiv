@@ -1122,6 +1122,12 @@ function entityChip(t) {
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function tokenLabel(type) {
+  return ETYPES[type]?.label || String(type || '').replace(/_/g, ' ');
+}
+function scrubTokenText(text) {
+  return String(text || '').replace(/<<([A-Z_]+)_[a-zA-Z0-9]+>>/g, (_match, type) => `[${tokenLabel(type)}]`);
+}
 function fmtDate(iso) {
   if (!iso) return '&mdash;';
   return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
@@ -1165,9 +1171,8 @@ function highlightPIIInPassage(text, entityTypes = [], detectedEntities = [], se
       );
     });
 
-  safe = safe.replace(/&lt;&lt;([A-Z_]+)_([a-zA-Z0-9]+)&gt;&gt;/g, (match, type, id) => {
-    const label = (ETYPES[type]?.label || type).replace(/_/g, ' ');
-    return `<mark class="pii-mark ${markClass}">${svg('key', 12)} <span class="pii-val">&lt;&lt;${type}_${id}&gt;&gt;</span> (${esc(label)})</mark>`;
+  safe = safe.replace(/&lt;&lt;([A-Z_]+)_([a-zA-Z0-9]+)&gt;&gt;/g, (_match, type) => {
+    return `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span class="pii-val">${esc(tokenLabel(type))}</span></mark>`;
   });
 
   safe = safe.replace(/\[REDACTED:([A-Z_]+)\]/g, (match, type) => {
@@ -1282,7 +1287,11 @@ async function renderAssessments(el) {
       <td>${sensitivityBadge(a.sensitivity)}</td>
       <td>
         <div class="flex items-center gap-2">
-          ${a.high_critical > 0 ? `<span class="badge badge-red">${svg('alert-circle',12)} ${a.high_critical} High/Crit</span>` : `<span class="badge badge-green">${svg('check',12)} Clean</span>`}
+          ${a.finding_count === 0
+            ? `<span class="badge badge-green">${svg('check',12)} Clean</span>`
+            : a.high_critical > 0
+              ? `<span class="badge badge-red">${svg('alert-circle',12)} ${a.high_critical} High/Crit</span>`
+              : `<span class="badge badge-amber">${svg('alert',12)} Needs Review</span>`}
           <span class="td-muted">${a.finding_count} issue${a.finding_count !== 1 ? 's' : ''}</span>
         </div>
       </td>
@@ -1480,6 +1489,7 @@ function buildFindingCard(f, uid, filename = '') {
   const passages = f.evidence_passages || [];
   const firstPage = passages.length ? Number(passages[0].page) || 0 : 0;
   const passageExcerpt = passages.map(p => p.text).filter(Boolean).join('\n\n') || sents[0] || desc;
+  const summaryExcerpt = scrubTokenText(passageExcerpt);
   const whyReason = sents.length > 1 ? sents.slice(1, -1).join(' ').trim() || sents[1] : '';
   const actionText = simpleRecommendedAction(f);
 
@@ -1488,10 +1498,6 @@ function buildFindingCard(f, uid, filename = '') {
       <div class="passage-block">
         <div class="passage-block-meta">Page ${esc(p.page)}${p.section_label ? ` &middot; ${esc(p.section_label)}` : ''}</div>
         <div>${highlightPIIInPassage(p.text, p.entity_types || etypes, p.detected_entities || [], f.severity)}</div>
-        ${(p.detected_entities || []).length ? `
-          <div class="detected-pii-list">
-            ${p.detected_entities.map(entity => `<mark class="pii-mark pii-mark-${String(f.severity).toLowerCase()} detected-pii"><strong>${esc(entity.entity_type)}:</strong> ${esc(entity.value)}</mark>`).join('')}
-          </div>` : ''}
       </div>`).join('')
     : highlightPIIInPassage(passageExcerpt, etypes, [], f.severity);
 
@@ -1509,7 +1515,7 @@ function buildFindingCard(f, uid, filename = '') {
           ${loc}
           ${chips || more ? `<div class="finding-chips">${chips}${more}</div>` : ''}
           <div class="finding-title">${esc(f.title)}</div>
-          <div class="finding-desc">${esc(passageExcerpt.slice(0, 140))}${passageExcerpt.length > 140 ? '&hellip;' : ''}</div>
+          <div class="finding-desc">${esc(summaryExcerpt.slice(0, 140))}${summaryExcerpt.length > 140 ? '&hellip;' : ''}</div>
         </div>
         <div class="finding-right">
           <div class="score-ring sr-${esc(f.severity)}">

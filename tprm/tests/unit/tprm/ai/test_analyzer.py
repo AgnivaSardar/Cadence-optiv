@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import pytest
 
@@ -93,3 +94,24 @@ class TestAnalyzer:
         result_str = str([r.model_dump() for r in result.items])
         assert "alice@secret-corp.com" not in result_str
         assert "bob@internal.example.com" not in result_str
+
+    def test_primary_llm_timeout_falls_back_to_fake(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from tprm.ai import analyzer
+
+        class SlowLLM:
+            def invoke(self, messages: list[dict[str, str]]) -> object:
+                time.sleep(0.05)
+                raise RuntimeError("Ollama did not respond")
+
+        monkeypatch.setattr(analyzer, "_OLLAMA_TIMEOUT_SECONDS", 0.01)
+        result = analyzer._invoke_sync(
+            SlowLLM(),
+            "",
+            "Section class: encryption\n"
+            "Available block IDs for evidence citation: b-encrypt-001",
+            {"b-encrypt-001"},
+            0,
+        )
+
+        assert result
+        assert result[0].evidence_block_ids == ["b-encrypt-001"]
