@@ -45,11 +45,11 @@ class Settings(BaseSettings):
 
     # ── Ollama / LLM ─────────────────────────────────────────────────────────
     ollama_url: str = Field(
-        default="http://ollama:11434",
-        description="Ollama base URL (must be on internal network)",
+        default="http://localhost:11434",
+        description="Ollama base URL",
     )
     llm_model: str = Field(
-        default="llama3.1:8b",
+        default="llama3.2:3b",
         description="Ollama model name",
     )
     llm_max_retries: int = Field(default=2, description="Max JSON-repair retries")

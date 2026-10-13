@@ -187,3 +187,38 @@ app.mount("/static", StaticFiles(directory="src/tprm/ui/static"), name="static")
 | `ui/static/` | 1 empty dir | Zero — no assets existed |
 
 **No source code, configuration, tests, or data was removed.**
+
+---
+
+## Second Pass — Additional Removals
+
+### 11. `__pycache__` directories (second pass)
+
+Regenerated automatically when the import verification check ran after the first cleanup. Same as before — zero impact, auto-regenerated on next run.
+
+### 12. `.DS_Store` files
+
+macOS Finder metadata files. No project content, should never be in version control.
+
+**Removed:**
+```
+/OPTIVE/.DS_Store
+/OPTIVE/tprm/.DS_Store
+```
+
+### 13. `tests/fixtures/make_realistic_pdf.py`
+
+A standalone PDF generator script. Verified with `grep` across the entire test suite — **no test file imports it**. `make_pdf.py`, `make_docx.py`, and `make_xlsx.py` are all actively imported by `tests/unit/tprm/ingestion/test_parser.py`. This one is not.
+
+**To recreate:** The file was a utility to generate a multi-section PDF with realistic TPRM content for manual testing. It used `reportlab` to write headings, body text, and a table. Run `python tests/fixtures/make_realistic_pdf.py` to output a PDF — it was never part of the automated test suite.
+
+### 14. `src/tprm/ai/schemas.py`
+
+A 6-line re-export shim:
+```python
+from tprm.common.models import AIRiskResult, RawRisk
+__all__ = ["AIRiskResult", "RawRisk"]
+```
+Verified with `grep` across all source and test files — **nothing imports from `tprm.ai.schemas`**. `AIRiskResult` and `RawRisk` are imported directly from `tprm.common.models` everywhere they are needed. This file added a redundant import path with no consumers.
+
+**To recreate:** `src/tprm/ai/schemas.py` with the two lines above.

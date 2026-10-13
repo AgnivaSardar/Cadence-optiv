@@ -26,6 +26,29 @@ _TOKEN_HEX_LEN: Final[int] = 8  # 8 hex chars = 32-bit token suffix
 # ── Key loading ───────────────────────────────────────────────────────────────
 
 
+def _load_dotenv_value(name: str) -> str:
+    """Read a single key from the .env file closest to the repo root.
+
+    Used as a last-resort fallback when the env var isn't exported to the
+    process — e.g. when uvicorn is started without ``dotenv`` loading.
+    """
+    # Walk up from this file (src/tprm/common/) to find .env
+    search = Path(__file__).parents[3]  # tprm/ project root
+    for candidate in (search / ".env", search.parent / ".env"):
+        if candidate.exists():
+            try:
+                for line in candidate.read_text().splitlines():
+                    line = line.strip()
+                    if line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, val = line.partition("=")
+                    if key.strip() == name:
+                        return val.strip()
+            except OSError:
+                pass
+    return ""
+
+
 def _require_env(name: str) -> str:
     """Load a required environment variable; raise at call site if missing."""
     # ``BaseSettings`` reads .env for application settings, but that does not
@@ -34,6 +57,9 @@ def _require_env(name: str) -> str:
     env_file = Path(__file__).parents[3] / ".env"
     load_dotenv(dotenv_path=env_file, override=False)
     val = os.environ.get(name, "").strip()
+    if not val:
+        # Fallback: read directly from .env (handles bare uvicorn without dotenv loader)
+        val = _load_dotenv_value(name)
     if not val:
         raise VaultError(
             f"Required environment variable {name!r} is not set. "

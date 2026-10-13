@@ -30,13 +30,19 @@ def score_severity(
 ) -> SeverityScore:
     """Compute severity score for a risk.
 
+    LLM-assessed values (risk.likelihood, risk.impact, risk.gap_status) take
+    priority over the YAML taxonomy defaults when present.  YAML values are used
+    only as a fallback for fields the LLM did not return.
+
     Formula: score = clamp(likelihood * impact * control_gap_factor * vendor_criticality * 100, 0, 100)
     Plus audit qualification boosters.
 
     Args:
         risk: The normalised risk item.
-        category: Risk category ID (for impact weight lookup).
-        gap_status: "missing" | "partial" | "satisfied"
+        category: Risk category ID (for impact/likelihood weight lookup when LLM
+            values are absent).
+        gap_status: Fallback gap status from control-mapping heuristics.  Ignored
+            when risk.gap_status is set by the LLM.
         vendor_criticality: 0.8–1.5 (from assessment metadata)
         audit_boosters: List of booster keys (e.g. ["soc2_exception"])
 
@@ -46,21 +52,40 @@ def score_severity(
     settings = get_settings()
     taxonomy = settings.risk_taxonomy
 
-    # Find category weights
+    # ── Resolve per-category YAML defaults (used only as fallback) ────────────
     categories = {c["id"]: c for c in taxonomy.get("categories", [])}
     cat_data = categories.get(category, {})
 
-    likelihood = cat_data.get("likelihood_default", 0.5) * risk.confidence
-    impact = cat_data.get("impact_default", 0.6)
+    yaml_likelihood_default: float = cat_data.get("likelihood_default", 0.5)
+    yaml_impact_default: float = cat_data.get("impact_default", 0.6)
+
+    # ── Prefer LLM-assessed values; fall back to YAML defaults ────────────────
+    if risk.likelihood is not None:
+        likelihood = risk.likelihood
+        likelihood_source = "llm"
+    else:
+        likelihood = yaml_likelihood_default * risk.confidence
+        likelihood_source = "yaml_default"
+
+    if risk.impact is not None:
+        impact = risk.impact
+        impact_source = "llm"
+    else:
+        impact = yaml_impact_default
+        impact_source = "yaml_default"
+
+    # LLM gap_status overrides the heuristic from map_controls()
+    effective_gap_status = risk.gap_status if risk.gap_status is not None else gap_status
+    gap_status_source = "llm" if risk.gap_status is not None else "heuristic"
 
     gap_factors = taxonomy.get("control_gap_factors", {
         "satisfied": 1.0, "partial": 1.3, "missing": 1.6,
     })
-    control_gap_factor = gap_factors.get(gap_status, 1.6)
+    control_gap_factor = gap_factors.get(effective_gap_status, 1.6)
 
     raw_score = likelihood * impact * control_gap_factor * vendor_criticality * 100
 
-    # Audit boosters
+    # ── Audit boosters ─────────────────────────────────────────────────────────
     booster_total = 0
     booster_config = taxonomy.get("audit_boosters", {})
     for booster_key in (audit_boosters or []):
@@ -80,6 +105,10 @@ def score_severity(
         score=final_score,
         label=label,
         category=category,
+        likelihood_source=likelihood_source,
+        impact_source=impact_source,
+        gap_status_source=gap_status_source,
+        effective_gap_status=effective_gap_status,
     )
 
     return SeverityScore(
