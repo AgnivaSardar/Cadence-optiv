@@ -188,3 +188,76 @@ class TestOverlapResolution:
         ]
         resolved = _resolve_overlaps(entities)
         assert len(resolved) == 2
+
+
+class TestDetectorFiltering:
+    def test_date_like_phone_number_false_positive_is_ignored(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from tprm.common.models import Block
+        from tprm.pii import detector
+
+        class FakeResult:
+            def __init__(self) -> None:
+                self.entity_type = "PHONE_NUMBER"
+                self.start = 9
+                self.end = 19
+                self.score = 0.99
+                self.recognition_metadata = {"recognizer_name": "fake-phone"}
+
+        class FakeAnalyzer:
+            def analyze(self, **_: object) -> list[FakeResult]:
+                return [FakeResult()]
+
+        monkeypatch.setattr(detector, "_get_analyzer", lambda **_: FakeAnalyzer())
+
+        entities = detector.detect([Block(doc_id="d1", page=1, text="Due date 2024/01/31")])
+
+        assert entities == []
+
+    def test_month_year_date_range_false_positive_is_ignored(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from tprm.common.models import Block
+        from tprm.pii import detector
+
+        class FakeResult:
+            def __init__(self) -> None:
+                self.entity_type = "PHONE_NUMBER"
+                self.start = 55
+                self.end = 72
+                self.score = 0.99
+                self.recognition_metadata = {"recognizer_name": "fake-phone"}
+
+        class FakeAnalyzer:
+            def analyze(self, **_: object) -> list[FakeResult]:
+                return [FakeResult()]
+
+        monkeypatch.setattr(detector, "_get_analyzer", lambda **_: FakeAnalyzer())
+
+        text = "Backend & Cloud Deployment Intern - VitaData Solutions 01/2026 - 07/2026"
+        entities = detector.detect([Block(doc_id="d1", page=1, text=text)])
+
+        assert entities == []
+
+    def test_fallback_detects_contact_table_email_and_phone(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from tprm.common.models import Block
+        from tprm.pii import detector
+
+        class EmptyAnalyzer:
+            def analyze(self, **_: object) -> list[object]:
+                return []
+
+        monkeypatch.setattr(detector, "_get_analyzer", lambda **_: EmptyAnalyzer())
+
+        text = "Contact Miriam A. Tachebe m.tachebe@cadencefg.com, +1 (212) 555-0147"
+        entities = detector.detect([Block(doc_id="d1", page=1, text=text)])
+        entity_types = {entity.entity_type for entity in entities}
+
+        assert "EMAIL_ADDRESS" in entity_types
+        assert "PHONE_NUMBER" in entity_types

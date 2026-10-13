@@ -6,6 +6,7 @@ Recall-biased: thresholds are configured to prefer false positives.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from tprm.common.logging import get_logger
@@ -39,6 +40,16 @@ _DEFAULT_ENTITIES = [
 ]
 
 _ANALYZER_SINGLETON: Any = None
+
+_DATE_LIKE_PHONE_PATTERNS = [
+    re.compile(r"^\d{1,2}[/-]\d{4}$"),
+    re.compile(r"^\d{1,2}[/-]\d{4}\s*[-–—]\s*\d{1,2}[/-]\d{4}$"),
+    re.compile(r"^\d{1,4}[/-]\d{1,2}(?:[/-]\d{2,4})?$"),
+]
+_EMAIL_FALLBACK_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+_PHONE_FALLBACK_RE = re.compile(
+    r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?(?:\(\d{2,4}\)|\d{2,4})[\s.-]\d{3,5}[\s.-]\d{3,5}(?!\w)"
+)
 
 
 class _PatternOnlyNlpEngine:
@@ -166,6 +177,12 @@ def reset_analyzer() -> None:
     _ANALYZER_SINGLETON = None
 
 
+def _is_date_like_phone_number(text: str) -> bool:
+    """Return True for date/date-range fragments Presidio can misread as phones."""
+    compact = re.sub(r"\s+", " ", text.strip())
+    return any(pattern.fullmatch(compact) for pattern in _DATE_LIKE_PHONE_PATTERNS)
+
+
 def detect(
     blocks: list[Block],
     thresholds: dict[str, float] | None = None,
@@ -204,6 +221,12 @@ def detect(
 
         block_entities: list[PIIEntity] = []
         for result in results:
+            raw_text = block.text[result.start : result.end]
+            if (
+                result.entity_type == "PHONE_NUMBER"
+                and _is_date_like_phone_number(raw_text)
+            ):
+                continue
             min_score = thresholds.get(result.entity_type, 0.35)
             if result.score < min_score:
                 continue
@@ -212,13 +235,42 @@ def detect(
                 start=result.start,
                 end=result.end,
                 entity_type=result.entity_type,
-                text=block.text[result.start : result.end],  # raw value — never logged
+                text=raw_text,  # raw value — never logged
                 score=result.score,
                 recognizer=result.recognition_metadata.get("recognizer_name", "unknown")
                 if result.recognition_metadata
                 else "unknown",
             )
             block_entities.append(entity)
+
+        for match in _EMAIL_FALLBACK_RE.finditer(block.text):
+            block_entities.append(
+                PIIEntity(
+                    block_id=block.id,
+                    start=match.start(),
+                    end=match.end(),
+                    entity_type="EMAIL_ADDRESS",
+                    text=match.group(0),
+                    score=0.50,
+                    recognizer="fallback_email_regex",
+                )
+            )
+
+        for match in _PHONE_FALLBACK_RE.finditer(block.text):
+            raw_text = match.group(0)
+            if _is_date_like_phone_number(raw_text):
+                continue
+            block_entities.append(
+                PIIEntity(
+                    block_id=block.id,
+                    start=match.start(),
+                    end=match.end(),
+                    entity_type="PHONE_NUMBER",
+                    text=raw_text,
+                    score=0.50,
+                    recognizer="fallback_phone_regex",
+                )
+            )
 
         # Resolve overlaps: longest span wins; ties broken by highest score
         resolved = _resolve_overlaps(block_entities)

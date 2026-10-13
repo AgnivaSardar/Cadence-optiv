@@ -203,29 +203,49 @@ def _parse_pdf(raw: bytes, doc_id: str, policy: dict[str, Any]) -> tuple[list[Bl
                         ocr_conf=mean_conf,
                     )
                 )
+            elif native_text.strip():
+                blocks.extend(_native_pdf_blocks(page, doc_id, page_num))
         else:
-            # Native text extraction with bboxes
-            raw_blocks = page.get_text("blocks")
-            for b in raw_blocks:
-                # b = (x0, y0, x1, y1, text, block_no, block_type)
-                if len(b) < 5:
-                    continue
-                x0, y0, x1, y1, text = b[0], b[1], b[2], b[3], b[4]
-                text = str(text).strip()
-                if not text:
-                    continue
-                blocks.append(
-                    Block(
-                        doc_id=doc_id,
-                        page=page_num,
-                        text=text,
-                        bbox=BoundingBox(x0=x0, y0=y0, x1=x1, y1=y1),
-                        source="native",
-                    )
-                )
+            blocks.extend(_native_pdf_blocks(page, doc_id, page_num))
 
     doc.close()
     return blocks, {"page_count": page_count, "has_ocr_pages": has_ocr_pages}
+
+
+def _native_pdf_blocks(page: Any, doc_id: str, page_num: int) -> list[Block]:
+    """Extract native PDF text blocks with a whole-page fallback."""
+    blocks: list[Block] = []
+    raw_blocks = page.get_text("blocks")
+    for b in raw_blocks:
+        # b = (x0, y0, x1, y1, text, block_no, block_type)
+        if len(b) < 5:
+            continue
+        x0, y0, x1, y1, text = b[0], b[1], b[2], b[3], b[4]
+        text = str(text).strip()
+        if not text:
+            continue
+        blocks.append(
+            Block(
+                doc_id=doc_id,
+                page=page_num,
+                text=text,
+                bbox=BoundingBox(x0=x0, y0=y0, x1=x1, y1=y1),
+                source="native",
+            )
+        )
+
+    if not blocks:
+        text = page.get_text("text").strip()
+        if text:
+            blocks.append(
+                Block(
+                    doc_id=doc_id,
+                    page=page_num,
+                    text=text,
+                    source="native",
+                )
+            )
+    return blocks
 
 
 # ── DOCX parser ───────────────────────────────────────────────────────────────

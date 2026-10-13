@@ -10,20 +10,19 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from collections import defaultdict
 from typing import Any, Protocol, runtime_checkable
 
 from tprm.ai.prompts import build_prompt
-from tprm.common.errors import LLMError, LLMParseError, SignatureError
+from tprm.common.errors import LLMError, LLMParseError
 from tprm.common.logging import get_logger
-from tprm.common.models import AIRiskResult, GateApprovedPayload, RawRisk, SanitizedBlock
+from tprm.common.models import AIRiskResult, GateApprovedPayload, RawRisk
 from tprm.gate.verifier import verify_gate_approved
 
 log = get_logger(__name__)
 
 _MAX_RETRIES = 2
 _MAX_TOKENS_PER_SECTION = 1200
-_OLLAMA_TIMEOUT_SECONDS = 30
+_OLLAMA_TIMEOUT_SECONDS = 15
 _MAX_CONCURRENT_SECTIONS = 3  # parallel LLM calls — avoids overwhelming a local Ollama
 
 # Sections with few blocks get merged together to cut LLM round-trips
@@ -149,14 +148,32 @@ class FakeLLM:
         if match:
             section_class = match.group(1)
 
-        # For combined/mixed calls return all section responses
+        block_matches = re.findall(
+            r"\[Block ([^|\]]+)\s*\|\s*([^\]]+)\]",
+            user_content,
+        )
+        blocks_by_section: dict[str, list[str]] = {}
+        for block_id, block_section in block_matches:
+            blocks_by_section.setdefault(block_section.strip(), []).append(block_id.strip())
+
+        section_for_category = {
+            "ACCESS_MGMT": "access_control",
+            "ENCRYPTION": "encryption",
+            "INCIDENT_RESPONSE": "incident_response",
+            "SUBPROCESSOR": "subprocessors",
+            "PRIVACY_DATA": "data_retention",
+        }
+
+        # For combined calls, return only risks for sections actually present.
         if section_class in ("mixed", "other"):
             items = [
                 item
                 for sc, sc_items in self.FAKE_RESPONSES.items()
-                if sc != "default"
+                if sc != "default" and sc in blocks_by_section
                 for item in sc_items
             ]
+            if not items:
+                items = self.FAKE_RESPONSES["default"]
         else:
             items = self.FAKE_RESPONSES.get(section_class, self.FAKE_RESPONSES["default"])
 
@@ -164,12 +181,14 @@ class FakeLLM:
         block_id_match = re.search(r"Available block IDs for evidence citation: ([^\n]+)", user_content)
         block_ids = []
         if block_id_match:
-            block_ids = [b.strip() for b in block_id_match.group(1).split(",")][:1]
+            block_ids = [b.strip() for b in block_id_match.group(1).split(",")]
 
         populated_items = []
         for item in items:
             populated_item = dict(item)
-            populated_item["evidence_block_ids"] = block_ids if block_ids else ["fake-block-001"]
+            item_section = section_for_category.get(item.get("claimed_category", ""), "")
+            evidence_ids = blocks_by_section.get(item_section, block_ids)
+            populated_item["evidence_block_ids"] = evidence_ids[:5] or ["fake-block-001"]
             populated_items.append(populated_item)
 
         result = {"items": populated_items}
@@ -188,6 +207,7 @@ def _build_langchain_llm(settings: Any) -> Any:
             model=settings.llm_model,
             base_url=settings.ollama_url,
             temperature=0,
+            client_kwargs={"timeout": _OLLAMA_TIMEOUT_SECONDS},
         )
     except ImportError as exc:
         raise LLMError("langchain-ollama is not installed") from exc
@@ -385,8 +405,6 @@ async def _invoke_with_retry(
     raise LLMParseError(f"LLM failed after {max_retries + 1} attempts: {last_error}") from last_error
 
 
-def _parse_json_response(content: str) -> dict[str, Any]:
-    """Parse JSON from LLM response, with basic repair for common issues."""
 def _normalise_gap_status(parsed: dict[str, Any]) -> None:
     """Coerce freeform gap_status values the LLM returns into the canonical enum.
 
