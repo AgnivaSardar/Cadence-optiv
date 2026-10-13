@@ -31,7 +31,6 @@ _DEFAULT_ENTITIES = [
     "PERSON",
     "ORG",
     "LOCATION",
-    "DATE_TIME",
     "EMPLOYEE_ID",
     "CONTRACT_NUMBER",
     "BANK_ACCOUNT",
@@ -40,6 +39,47 @@ _DEFAULT_ENTITIES = [
 ]
 
 _ANALYZER_SINGLETON: Any = None
+
+
+class _PatternOnlyNlpEngine:
+    """Small Presidio-compatible NLP engine for recognizer-only scanning."""
+
+    def __init__(self) -> None:
+        import spacy
+
+        from presidio_analyzer.nlp_engine import NlpArtifacts
+
+        self._nlp = spacy.blank("en")
+        self._artifacts_type = NlpArtifacts
+
+    def load(self) -> None:
+        return None
+
+    def is_loaded(self) -> bool:
+        return True
+
+    def process_text(self, text: str, language: str) -> Any:
+        doc = self._nlp(text)
+        return self._artifacts_type(
+            entities=[],
+            tokens=doc,
+            tokens_indices=[token.idx for token in doc],
+            lemmas=[token.text for token in doc],
+            nlp_engine=self,
+            language=language,
+        )
+
+    def process_batch(self, texts: Any, language: str, **kwargs: Any) -> Any:
+        return ((text, self.process_text(text, language)) for text in texts)
+
+    def is_stopword(self, word: str, language: str) -> bool:
+        return False
+
+    def is_punct(self, word: str, language: str) -> bool:
+        return False
+
+    def get_supported_entities(self) -> list[str]:
+        return []
 
 
 def _get_analyzer(
@@ -59,7 +99,7 @@ def _get_analyzer(
 
     try:
         from presidio_analyzer import AnalyzerEngine, RecognizerRegistry  # type: ignore[import-untyped]
-        from presidio_analyzer.nlp_engine import NlpEngineProvider, NoOpNlpEngine  # type: ignore[import-untyped]
+        from presidio_analyzer.nlp_engine import NlpEngineProvider  # type: ignore[import-untyped]
     except ImportError as exc:
         raise ImportError("presidio-analyzer is not installed") from exc
 
@@ -94,7 +134,7 @@ def _get_analyzer(
     else:
         # Pattern-only mode: manually register pattern-based built-ins
         log.warning("spacy_model_not_found_using_pattern_only_pii")
-        nlp_engine = NoOpNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_sm"}])
+        nlp_engine = _PatternOnlyNlpEngine()
         try:
             from presidio_analyzer.predefined_recognizers import (  # type: ignore[import-untyped]
                 CreditCardRecognizer, EmailRecognizer, IpRecognizer,

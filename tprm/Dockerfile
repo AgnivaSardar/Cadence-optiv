@@ -23,7 +23,7 @@ RUN uv venv /app/.venv && \
     pymupdf python-docx openpyxl pytesseract Pillow \
     fastapi uvicorn[standard] typer \
     pydantic pydantic-settings \
-    structlog cryptography pyyaml \
+    structlog cryptography python-dotenv pyyaml \
     sqlalchemy asyncpg alembic \
     httpx python-magic python-multipart \
     langchain langchain-ollama langchain-core \

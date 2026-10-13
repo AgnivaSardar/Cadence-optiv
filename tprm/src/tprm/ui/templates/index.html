@@ -3,60 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TPRM Platform — Privacy-Preserving Vendor Risk</title>
+<title>TPRM Platform &mdash; Privacy-Preserving Vendor Risk Assessment</title>
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Supabase-inspired enterprise security palette
-═══════════════════════════════════════════════════════════════════ */
+/* -- Reset & Variables -- */
 :root {
-  /* Brand */
-  --emerald:       #3ECF8E;
-  --emerald-hover: #24B47E;
-  --emerald-dark:  #1a9966;
-  --navy:          #102A43;
-  --navy-dark:     #0B1F33;
-  --navy-mid:      #1a3a55;
-  --navy-light:    #1e4060;
+  --navy-dark:      #0b192c;
+  --navy-header:    #0f172a;
+  --navy-surface:   #1e293b;
+  --emerald:        #10b981;
+  --emerald-dark:   #059669;
+  --emerald-light:  #d1fae5;
+  --emerald-hover:  #047857;
+  --red:            #ef4444;
+  --red-bg:         #fee2e2;
+  --red-border:     #fca5a5;
+  --amber:          #f59e0b;
+  --amber-bg:       #fef3c7;
+  --amber-border:   #fde68a;
+  --blue:           #3b82f6;
+  --blue-bg:        #eff6ff;
+  --blue-border:    #bfdbfe;
+  --purple:         #8b5cf6;
+  --purple-bg:      #f5f3ff;
+  --purple-border:  #ddd6fe;
 
-  /* Surfaces */
-  --bg:            #FFFFFF;
-  --bg-alt:        #F5F7FA;
-  --bg-subtle:     #FAFAFA;
-  --border:        #DFE5EC;
-  --border-strong: #CBD5E1;
+  --bg:             #ffffff;
+  --bg-alt:         #f8fafc;
+  --bg-subtle:      #f1f5f9;
+  --border:         #e2e8f0;
+  --border-strong:  #cbd5e1;
 
-  /* Typography */
-  --text-primary:   #171717;
-  --text-secondary: #64748B;
-  --text-muted:     #94A3B8;
-  --text-on-dark:   #FFFFFF;
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #64748b;
+  --text-on-dark:   #f8fafc;
   --text-on-dark-2: #94a3b8;
 
-  /* Semantic states */
-  --green:          #15803D;
-  --green-bg:       #F0FDF4;
-  --green-border:   #BBF7D0;
-  --green-mid:      #22c55e;
-
-  --amber:          #D97706;
-  --amber-bg:       #FFFBEB;
-  --amber-border:   #FDE68A;
-
-  --red:            #DC2626;
-  --red-bg:         #FEF2F2;
-  --red-border:     #FECACA;
-
-  --blue:           #2563EB;
-  --blue-bg:        #EFF6FF;
-  --blue-border:    #BFDBFE;
-
-  --purple:         #7C3AED;
-  --purple-bg:      #F5F3FF;
-  --purple-border:  #DDD6FE;
-
-  /* Layout */
-  --sidebar-w:      232px;
-  --topbar-h:       56px;
+  --header-h:       64px;
   --radius-sm:      6px;
   --radius:         8px;
   --radius-lg:      12px;
@@ -64,9 +47,24 @@
   --shadow:         0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md:      0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.05);
   --shadow-lg:      0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+  --font-mono:      ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* ── Reset ── */
+.detected-pii-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.detected-pii {
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 14px; }
 body {
@@ -76,182 +74,148 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   overflow-x: hidden;
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
 input, select, textarea { font-family: inherit; }
 
-/* ── Scrollbar ── */
+/* -- Scrollbars -- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   SIDEBAR
-═══════════════════════════════════════════════════════════════════ */
-.sidebar {
-  width: var(--sidebar-w);
-  min-height: 100vh;
-  background: var(--navy-dark);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: fixed;
-  top: 0; left: 0; bottom: 0;
-  z-index: 200;
-  overflow-y: auto;
-  transition: transform .25s ease;
+/* ===================================================================
+   CLEAN HEADER (Only Assessments & New Assessment, no operational pill, no green button)
+=================================================================== */
+.app-header {
+  width: 100%;
+  height: var(--header-h);
+  background: var(--navy-header);
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
 }
-.sidebar-brand {
+.header-container {
+  max-width: 1440px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  justify-content: space-between;
+  gap: 20px;
 }
-.brand-icon {
-  width: 34px; height: 34px;
-  background: var(--emerald);
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.brand-name { font-size: 14px; font-weight: 700; color: var(--text-on-dark); letter-spacing: -.2px; }
-.brand-sub  { font-size: 11px; color: var(--text-on-dark-2); margin-top: 1px; }
 
-.sidebar-section {
-  padding: 16px 10px 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .8px;
-  text-transform: uppercase;
-  color: rgba(148,163,184,.5);
-}
-.nav-item {
+/* Brand */
+.brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  margin: 1px 6px;
-  border-radius: var(--radius-sm);
+  gap: 12px;
   cursor: pointer;
-  font-size: 13px;
-  color: rgba(148,163,184,.85);
-  transition: background .15s, color .15s;
   user-select: none;
 }
-.nav-item:hover { background: rgba(255,255,255,.07); color: var(--text-on-dark); }
-.nav-item.active {
-  background: rgba(62,207,142,.12);
-  color: var(--emerald);
-  font-weight: 600;
-}
-.nav-item .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
-.nav-item .nav-badge {
-  margin-left: auto;
-  background: rgba(220,38,38,.9);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(16,185,129,.35);
+  flex-shrink: 0;
 }
-.nav-item .nav-badge.amber { background: rgba(217,119,6,.9); }
-.nav-item .nav-badge.blue  { background: rgba(37,99,235,.9); }
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.2px;
+  line-height: 1.2;
+}
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-on-dark-2);
+  display: block;
+}
 
-.sidebar-footer {
-  margin-top: auto;
-  padding: 12px;
-  border-top: 1px solid rgba(255,255,255,.06);
-}
-.service-status {
+/* Nav Links - ONLY Assessments and New Assessment */
+.header-nav {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  font-size: 11px;
-  color: rgba(148,163,184,.7);
 }
-.status-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot-green  { background: var(--green-mid); box-shadow: 0 0 0 2px rgba(34,197,94,.2); }
-.dot-amber  { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.2); }
-.dot-red    { background: var(--red); }
-.dot-gray   { background: rgba(148,163,184,.4); }
-
-/* ── Mobile sidebar toggle ── */
-.sidebar-toggle {
-  display: none;
-  position: fixed;
-  top: 12px; left: 12px;
-  z-index: 300;
-  background: var(--navy-dark);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  width: 36px; height: 36px;
-  font-size: 18px;
+.nav-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-on-dark-2);
+  transition: all .15s ease;
+  user-select: none;
+}
+.nav-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,.07);
+}
+.nav-btn.active {
+  color: #fff;
+  background: rgba(16,185,129,.18);
+  border: 1px solid rgba(16,185,129,.35);
+}
+.nav-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(59,130,246,.3);
+  color: #93c5fd;
+  min-width: 18px;
+  text-align: center;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN CONTENT AREA
-═══════════════════════════════════════════════════════════════════ */
+/* ===================================================================
+   MAIN LAYOUT
+=================================================================== */
 .main {
-  margin-left: var(--sidebar-w);
+  width: 100%;
   flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
-
-/* ── Top bar ── */
-.topbar {
-  height: var(--topbar-h);
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  gap: 12px;
-  position: sticky;
-  top: 0; z-index: 100;
-  box-shadow: var(--shadow-sm);
-}
-.topbar-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.topbar-sub   { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.topbar-badge {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--bg-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 5px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
+.page-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  flex: 1;
 }
 
-/* ── Page content ── */
-.page-content { flex: 1; padding: 24px; max-width: 1280px; }
-
-/* ═══════════════════════════════════════════════════════════════════
+/* ===================================================================
    TYPOGRAPHY
-═══════════════════════════════════════════════════════════════════ */
-.page-title   { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -.3px; }
-.page-sub     { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
-.section-title{ font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .6px; }
+=================================================================== */
+.page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -.4px;
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
 
-/* ═══════════════════════════════════════════════════════════════════
-   CARDS
-═══════════════════════════════════════════════════════════════════ */
+/* ===================================================================
+   CARDS & STATS
+=================================================================== */
 .card {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -259,16 +223,24 @@ input, select, textarea { font-family: inherit; }
   box-shadow: var(--shadow-sm);
 }
 .card-header {
-  padding: 16px 20px 12px;
+  padding: 16px 20px 14px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
 }
-.card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.card-sub   { font-size: 12px; color: var(--text-muted); }
-.card-body  { padding: 16px 20px; }
-.card-footer{
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.card-body { padding: 18px 20px; }
+.card-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);
   font-size: 12px;
@@ -277,85 +249,172 @@ input, select, textarea { font-family: inherit; }
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* ── Stat cards ── */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
 .stat-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
 }
-.stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); }
-.stat-value { font-size: 28px; font-weight: 800; color: var(--text-primary); line-height: 1.1; margin-top: 4px; }
-.stat-hint  { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
-.stat-card.accent-green .stat-value { color: var(--green); }
-.stat-card.accent-red   .stat-value { color: var(--red); }
-.stat-card.accent-amber .stat-value { color: var(--amber); }
-.stat-card.accent-blue  .stat-value { color: var(--blue); }
-.stat-card.accent-emerald .stat-value { color: var(--emerald-dark); }
+.stat-info { flex: 1; }
+.stat-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+.stat-icon-wrap.green  { background: #ecfdf5; color: #059669; }
+.stat-icon-wrap.blue   { background: #eff6ff; color: #2563eb; }
+.stat-icon-wrap.red    { background: #fef2f2; color: #dc2626; }
+.stat-icon-wrap.amber  { background: #fffbeb; color: #d97706; }
 
-/* ═══════════════════════════════════════════════════════════════════
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin-top: 6px;
+}
+.stat-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+/* ===================================================================
    BUTTONS
-═══════════════════════════════════════════════════════════════════ */
+=================================================================== */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   padding: 8px 16px;
   border-radius: var(--radius);
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; border: none;
-  transition: background .15s, box-shadow .15s, transform .08s;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all .15s ease;
   white-space: nowrap;
 }
 .btn:active { transform: scale(.98); }
 .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-.btn-primary  { background: var(--emerald); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--emerald-hover); box-shadow: 0 0 0 3px rgba(62,207,142,.25); }
-.btn-secondary{ background: var(--bg); color: var(--text-primary); border: 1px solid var(--border-strong); }
-.btn-secondary:hover:not(:disabled){ background: var(--bg-alt); }
-.btn-danger   { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
-.btn-danger:hover:not(:disabled){ background: #fee2e2; }
-.btn-ghost    { background: transparent; color: var(--text-secondary); }
+.btn-primary { background: var(--emerald); color: #fff; }
+.btn-primary:hover:not(:disabled) {
+  background: var(--emerald-hover);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.25);
+}
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-alt); }
+.btn-danger { background: var(--red-bg); color: #b91c1c; border: 1px solid var(--red-border); }
+.btn-danger:hover:not(:disabled) { background: #fecaca; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
 .btn-ghost:hover { background: var(--bg-alt); color: var(--text-primary); }
-.btn-sm { padding: 5px 11px; font-size: 12px; }
-.btn-lg { padding: 11px 22px; font-size: 14px; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-full { width: 100%; }
-.btn-icon { padding: 7px; border-radius: var(--radius-sm); }
 
-/* ═══════════════════════════════════════════════════════════════════
-   BADGES
-═══════════════════════════════════════════════════════════════════ */
+/* ===================================================================
+   BADGES & CHIPS
+=================================================================== */
 .badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
   border-radius: 20px;
-  font-size: 11px; font-weight: 700;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: .2px;
   white-space: nowrap;
 }
-.badge-green   { background: var(--green-bg);   color: var(--green);   border: 1px solid var(--green-border); }
-.badge-amber   { background: var(--amber-bg);   color: var(--amber);   border: 1px solid var(--amber-border); }
-.badge-red     { background: var(--red-bg);     color: var(--red);     border: 1px solid var(--red-border); }
-.badge-blue    { background: var(--blue-bg);    color: var(--blue);    border: 1px solid var(--blue-border); }
-.badge-purple  { background: var(--purple-bg);  color: var(--purple);  border: 1px solid var(--purple-border); }
-.badge-gray    { background: var(--bg-alt);     color: var(--text-secondary); border: 1px solid var(--border); }
-.badge-navy    { background: #e8f0ff;           color: var(--navy);    border: 1px solid #c7d8f7; }
-.badge-emerald { background: #ecfdf5;           color: var(--emerald-dark); border: 1px solid #a7f3d0; }
-.badge-lg { padding: 4px 12px; font-size: 12px; }
+.badge-green   { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.badge-amber   { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.badge-red     { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.badge-blue    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.badge-gray    { background: var(--bg-alt); color: var(--text-secondary); border: 1px solid var(--border); }
 
-/* ═══════════════════════════════════════════════════════════════════
-   FORMS
-═══════════════════════════════════════════════════════════════════ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+.chip-red    { background: var(--red-bg);   color: #991b1b; border: 1px solid var(--red-border); }
+.chip-orange { background: #fff7ed;         color: #c2410c; border: 1px solid #fed7aa; }
+.chip-amber  { background: var(--amber-bg); color: #92400e; border: 1px solid var(--amber-border); }
+.chip-green  { background: #ecfdf5;         color: #047857; border: 1px solid #a7f3d0; }
+.chip-blue   { background: var(--blue-bg);  color: #1e40af; border: 1px solid var(--blue-border); }
+.chip-gray   { background: var(--bg-alt);   color: var(--text-secondary); border: 1px solid var(--border); }
+
+/* ===================================================================
+   TABLES
+=================================================================== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg-alt); }
+.td-muted { color: var(--text-muted); font-size: 12px; }
+
+/* ===================================================================
+   FORMS & DROP ZONE
+=================================================================== */
 .form-group { margin-bottom: 14px; }
 .form-label {
   display: block;
-  font-size: 12px; font-weight: 600;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 5px;
 }
 .form-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius);
   font-size: 13px;
@@ -366,16 +425,37 @@ input, select, textarea { font-family: inherit; }
 }
 .form-input:focus {
   border-color: var(--emerald);
-  box-shadow: 0 0 0 3px rgba(62,207,142,.15);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
 }
-.form-input::placeholder { color: var(--text-muted); }
 .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
-/* Drop zone */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  font-size: 13px;
+}
+.search-bar input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  flex: 1;
+  font-size: 13px;
+}
+.search-bar:focus-within {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+}
+
 .drop-zone {
   border: 2px dashed var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 32px 20px;
+  padding: 38px 20px;
   text-align: center;
   cursor: pointer;
   transition: all .2s;
@@ -387,176 +467,50 @@ input, select, textarea { font-family: inherit; }
   background: #f0fdf4;
 }
 .drop-zone input[type=file] {
-  position: absolute; inset: 0;
-  opacity: 0; cursor: pointer;
-  width: 100%; height: 100%;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
 }
-.drop-zone-icon  { font-size: 36px; margin-bottom: 8px; }
-.drop-zone-text  { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.drop-zone-icon { color: var(--emerald); margin-bottom: 8px; }
+.drop-zone-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .drop-zone-text span { color: var(--emerald-dark); text-decoration: underline; }
-.drop-zone-hint  { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-.drop-zone-file  { font-size: 12px; color: var(--emerald-dark); font-weight: 600; margin-top: 8px; }
+.drop-zone-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.drop-zone-file { font-size: 13px; color: var(--emerald-dark); font-weight: 700; margin-top: 8px; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   TABLES
-═══════════════════════════════════════════════════════════════════ */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-thead th {
-  padding: 9px 14px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  color: var(--text-muted);
-  background: var(--bg-alt);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-thead th:first-child { border-radius: var(--radius-sm) 0 0 0; }
-thead th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
-tbody td {
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover td { background: var(--bg-alt); }
-.td-mono { font-family: "SF Mono","Fira Code",Menlo,monospace; font-size: 12px; color: var(--text-secondary); }
-.td-muted { color: var(--text-muted); font-size: 12px; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   ALERTS / BANNERS
-═══════════════════════════════════════════════════════════════════ */
-.alert {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  line-height: 1.5;
-}
-.alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-.alert-green  { background: var(--green-bg);  border: 1px solid var(--green-border);  color: #166534; }
-.alert-amber  { background: var(--amber-bg);  border: 1px solid var(--amber-border);  color: #92400e; }
-.alert-red    { background: var(--red-bg);    border: 1px solid var(--red-border);    color: #991b1b; }
-.alert-blue   { background: var(--blue-bg);   border: 1px solid var(--blue-border);   color: #1e40af; }
-.alert-navy   { background: #eef2ff;          border: 1px solid #c7d2fe;              color: var(--navy); }
-
-/* ═══════════════════════════════════════════════════════════════════
-   SECURITY GATE — distinctive elements
-═══════════════════════════════════════════════════════════════════ */
-.gate-boundary {
-  background: linear-gradient(135deg, #0b1f33 0%, #102a43 100%);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: var(--radius-lg);
-  color: var(--text-on-dark);
-  padding: 20px;
-  margin-bottom: 20px;
-}
-.gate-boundary-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--emerald);
-  margin-bottom: 12px;
-}
-.gate-zone {
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  font-size: 12px;
-}
-.gate-zone-private {
-  background: rgba(22,163,74,.08);
-  border-color: rgba(22,163,74,.25);
-}
-.gate-zone-gate {
-  background: rgba(217,119,6,.12);
-  border-color: rgba(217,119,6,.4);
-  border-width: 1.5px;
-}
-.gate-zone-ai {
-  background: rgba(37,99,235,.08);
-  border-color: rgba(37,99,235,.25);
-}
-.gate-zone-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .8px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.zone-private-label { color: #4ade80; }
-.zone-gate-label    { color: #fbbf24; }
-.zone-ai-label      { color: #93c5fd; }
-
-.gate-check {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
+/* ===================================================================
+   DEDICATED FILE CONTENT PAGE
+=================================================================== */
+.file-page-header {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
 }
-.gate-check:last-child { margin-bottom: 0; }
-.gate-check-icon { font-size: 16px; flex-shrink: 0; }
-.gate-check-name { font-size: 13px; font-weight: 600; flex: 1; }
-.gate-check-desc { font-size: 11px; color: var(--text-muted); }
-
-/* HMAC disclaimer */
-.hmac-note {
-  background: var(--amber-bg);
-  border: 1px solid var(--amber-border);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #92400e;
-  margin-top: 12px;
-  line-height: 1.5;
+.back-btn-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   PIPELINE PROGRESS
-═══════════════════════════════════════════════════════════════════ */
-.pipeline-steps { display: flex; flex-direction: column; gap: 2px; }
-.pipe-step {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.pipe-step .ps-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  flex-shrink: 0;
-  transition: background .3s;
-}
-.pipe-step.ps-done  { color: var(--green); }
-.pipe-step.ps-done  .ps-dot { background: var(--green-mid); }
-.pipe-step.ps-active{ color: var(--text-primary); font-weight: 600; }
-.pipe-step.ps-active .ps-dot { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-border); animation: pulse .9s infinite; }
-.pipe-step .ps-label { flex: 1; }
-.pipe-step .ps-time  { font-size: 11px; font-family: "SF Mono", Menlo, monospace; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-
-/* ═══════════════════════════════════════════════════════════════════
-   FINDING CARDS
-═══════════════════════════════════════════════════════════════════ */
+/* Individual Finding Card in File Page */
 .finding-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   overflow: hidden;
-  margin-bottom: 10px;
-  transition: box-shadow .15s;
+  margin-bottom: 12px;
+  transition: box-shadow .15s, border-color .15s;
 }
-.finding-card:hover { box-shadow: var(--shadow-md); }
+.finding-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
 .finding-card-top {
   display: flex;
   cursor: pointer;
@@ -567,147 +521,404 @@ tbody tr:hover td { background: var(--bg-alt); }
 .sev-Critical .finding-stripe { background: var(--red); }
 .sev-High     .finding-stripe { background: #f97316; }
 .sev-Medium   .finding-stripe { background: var(--amber); }
-.sev-Low      .finding-stripe { background: var(--green); }
+.sev-Low      .finding-stripe { background: var(--emerald); }
+
 .finding-body { flex: 1; padding: 14px 16px; min-width: 0; }
 .finding-location {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--bg-alt); border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 2px 8px; font-size: 11px;
-  color: var(--text-secondary); margin-bottom: 7px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
 }
 .finding-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 7px; }
-.finding-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.finding-desc  { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.finding-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.finding-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
 .finding-right {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 14px 14px 14px 0; gap: 6px; flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 16px 14px 0;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .score-ring {
-  width: 44px; height: 44px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 2px solid;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
 }
-.sr-Critical { border-color: var(--red);   color: var(--red); }
+.sr-Critical { border-color: var(--red); color: var(--red); }
 .sr-High     { border-color: #f97316; color: #f97316; }
 .sr-Medium   { border-color: var(--amber); color: var(--amber); }
-.sr-Low      { border-color: var(--green); color: var(--green); }
-.finding-chevron { font-size: 10px; color: var(--text-muted); transition: transform .2s; }
+.sr-Low      { border-color: var(--emerald); color: var(--emerald-dark); }
+.finding-chevron { color: var(--text-muted); transition: transform .2s; }
 .finding-chevron.open { transform: rotate(180deg); }
+
+/* Finding Detail Content */
 .finding-detail {
   display: none;
   border-top: 1px solid var(--border);
-  padding: 16px 18px;
-  background: var(--bg-subtle);
+  padding: 18px 20px;
+  background: var(--bg-alt);
 }
 .finding-detail.open { display: block; }
-.detail-section { margin-bottom: 14px; }
-.detail-section:last-child { margin-bottom: 0; }
-.detail-label {
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .6px;
-  color: var(--text-muted); margin-bottom: 6px;
+.file-analysis-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 40%);
+  gap: 20px;
+  align-items: start;
 }
-.detail-found-box {
-  background: #fff8f0;
-  border-left: 3px solid #f97316;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 10px 14px;
-  font-size: 12px; line-height: 1.6;
+.findings-column { min-width: 0; }
+.document-preview-panel {
+  position: sticky;
+  top: calc(var(--header-h) + 18px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
 }
-.detail-why-box {
-  background: var(--bg-alt); border-radius: var(--radius-sm);
-  padding: 10px 14px; font-size: 12px; line-height: 1.6;
-}
-.detail-action-box {
-  background: var(--blue-bg); border: 1px solid var(--blue-border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px; font-size: 12px; line-height: 1.6;
-  display: flex; gap: 8px; color: #1e40af;
-}
-.control-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.control-chip {
-  background: var(--bg-alt); border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px 8px; font-size: 11px; color: var(--text-secondary);
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   WORKFLOW STATE MACHINE
-═══════════════════════════════════════════════════════════════════ */
-.workflow-track {
+.document-preview-title {
   display: flex;
   align-items: center;
-  gap: 0;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
 }
-.wf-node {
-  display: flex; flex-direction: column; align-items: center;
-  flex-shrink: 0;
+.document-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
-.wf-circle {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border-strong);
-  background: var(--bg);
-  display: flex; align-items: center; justify-content: center;
+.document-preview-toolbar .document-preview-title { margin-bottom: 10px; }
+.preview-toggle { display: flex; gap: 4px; }
+.preview-mode-btn.active {
+  background: var(--navy-header);
+  color: #fff;
+}
+.document-focus-pulse {
+  animation: document-focus-pulse 1s ease-in-out 5;
+}
+@keyframes document-focus-pulse {
+  50% { outline: 4px solid #f59e0b; outline-offset: 3px; }
+}
+.document-preview-frame {
+  width: 100%;
+  height: min(78vh, 1080px);
+  min-height: 520px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #252525;
+}
+.document-preview-empty {
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.back-btn-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.file-page-compact-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  color: var(--text-secondary);
   font-size: 13px;
-  transition: all .2s;
 }
-.wf-circle.wf-done   { background: var(--green-bg);   border-color: var(--green-mid); color: var(--green); }
-.wf-circle.wf-active { background: var(--blue-bg);    border-color: var(--blue);      color: var(--blue);  box-shadow: 0 0 0 3px var(--blue-border); }
-.wf-circle.wf-alert  { background: var(--red-bg);     border-color: var(--red);       color: var(--red); }
-.wf-label { font-size: 10px; color: var(--text-muted); margin-top: 5px; text-align: center; max-width: 64px; }
-.wf-arrow { font-size: 14px; color: var(--border-strong); margin: 0 4px; margin-bottom: 18px; }
+.file-page-compact-title strong {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-section { margin-bottom: 16px; }
+.detail-section:last-child { margin-bottom: 0; }
+.detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-/* ═══════════════════════════════════════════════════════════════════
-   AUDIT LOG
-═══════════════════════════════════════════════════════════════════ */
-.audit-row {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+/* ===================================================================
+   PASSAGE-WISE PII HIGHLIGHT
+=================================================================== */
+.passage-card {
+  background: #fffcf0;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
 }
-.audit-row:last-child { border-bottom: none; }
-.audit-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 3px; }
-.audit-dot-outer {
-  width: 10px; height: 10px;
+.passage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #b45309;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.passage-text {
+  color: #1e293b;
+  font-size: 13px;
+}
+.passage-block + .passage-block {
+  border-top: 1px solid #f3d98b;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.passage-block-meta {
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.pii-mark {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: baseline;
+  font-size: 12px;
+}
+.pii-mark-critical { background: #fecaca; color: #991b1b; border: 1px solid #f87171; }
+.pii-mark-high { background: #fed7aa; color: #9a3412; border: 1px solid #fb923c; }
+.pii-mark-medium { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+.pii-mark-low { background: #bbf7d0; color: #166534; border: 1px solid #4ade80; }
+.pii-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Plain English Boxes */
+.detail-why-box {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.detail-action-box {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  color: #1e40af;
+  align-items: flex-start;
+}
+
+/* ===================================================================
+   RISK SCORE FORMULATION BOX
+=================================================================== */
+.formulation-box {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.formulation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.formulation-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.formulation-eq {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-alt);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: #334155;
+}
+.score-meter {
+  position: relative;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+.score-meter-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width .6s ease;
+}
+.meter-Critical { background: var(--red); }
+.meter-High     { background: #f97316; }
+.meter-Medium   { background: var(--amber); }
+.meter-Low      { background: var(--emerald); }
+
+.score-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.formulation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.factor-cell {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.factor-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.factor-val { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+
+/* ===================================================================
+   PIPELINE PROGRESS
+=================================================================== */
+.pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+.pipe-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pipe-step .ps-dot {
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  color: var(--text-muted);
 }
-.audit-line { width: 2px; flex: 1; background: var(--border); min-height: 16px; margin-top: 3px; }
-.audit-content { flex: 1; min-width: 0; }
-.audit-action { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.audit-meta   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.audit-hash   { font-size: 10px; font-family: "SF Mono", Menlo, monospace; color: var(--text-muted); }
+.pipe-step.ps-done { color: #047857; font-weight: 600; }
+.pipe-step.ps-done .ps-dot {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+.pipe-step.ps-active { color: var(--text-primary); font-weight: 700; }
+.pipe-step.ps-active .ps-dot {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+}
+.pipe-step .ps-label { flex: 1; }
+.pipe-step .ps-time  { font-size: 11px; font-family: var(--font-mono); }
 
-/* ═══════════════════════════════════════════════════════════════════
-   EMPTY STATES
-═══════════════════════════════════════════════════════════════════ */
+/* ===================================================================
+   EMPTY STATES & TOASTS
+=================================================================== */
 .empty-state {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
   text-align: center;
   color: var(--text-muted);
   gap: 10px;
   padding: 32px;
 }
-.empty-icon { font-size: 48px; opacity: .35; }
+.empty-icon { color: var(--text-muted); opacity: .45; }
 .empty-title { font-size: 15px; font-weight: 700; color: var(--text-secondary); }
-.empty-desc  { font-size: 13px; max-width: 320px; line-height: 1.5; }
+.empty-desc  { font-size: 13px; max-width: 340px; line-height: 1.5; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   LOADING / SPINNER
-═══════════════════════════════════════════════════════════════════ */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--navy-header);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  max-width: 360px;
+}
+.toast.toast-success { border-left: 3px solid var(--emerald); }
+.toast.toast-error   { border-left: 3px solid var(--red); }
+.toast.toast-warn    { border-left: 3px solid var(--amber); }
+
+/* Spinner */
 .spin {
   display: inline-block;
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255,255,255,.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -719,273 +930,87 @@ tbody tr:hover td { background: var(--bg-alt); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.skeleton {
-  background: linear-gradient(90deg, var(--bg-alt) 25%, var(--border) 50%, var(--bg-alt) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-sm);
-}
-@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-/* ═══════════════════════════════════════════════════════════════════
-   TOAST NOTIFICATIONS
-═══════════════════════════════════════════════════════════════════ */
-#toast-container {
-  position: fixed; bottom: 20px; right: 20px;
-  z-index: 1000; display: flex; flex-direction: column; gap: 8px;
-}
-.toast {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: var(--navy-dark);
-  color: var(--text-on-dark);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  font-size: 13px;
-  box-shadow: var(--shadow-lg);
-  animation: slide-in .2s ease;
-  max-width: 340px;
-}
-.toast.toast-success { border-left: 3px solid var(--emerald); }
-.toast.toast-error   { border-left: 3px solid var(--red); }
-.toast.toast-warn    { border-left: 3px solid var(--amber); }
-@keyframes slide-in { from{transform:translateX(100%);opacity:0} to{transform:none;opacity:1} }
-
-/* ═══════════════════════════════════════════════════════════════════
-   TIMING BARS
-═══════════════════════════════════════════════════════════════════ */
-.timing-row {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 8px;
-}
-.timing-label { font-size: 12px; color: var(--text-muted); width: 160px; flex-shrink: 0; text-transform: capitalize; }
-.timing-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.timing-fill  { height: 100%; border-radius: 3px; background: var(--emerald); transition: width .8s ease; }
-.timing-ms    { font-size: 11px; color: var(--text-muted); width: 55px; text-align: right; flex-shrink: 0; font-family: "SF Mono", Menlo, monospace; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   SEARCH BAR
-═══════════════════════════════════════════════════════════════════ */
-.search-bar {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--bg); border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius); padding: 7px 12px;
-  font-size: 13px;
-}
-.search-bar input {
-  border: none; outline: none;
-  background: transparent; color: var(--text-primary); flex: 1; font-size: 13px;
-}
-.search-bar input::placeholder { color: var(--text-muted); }
-.search-bar:focus-within { border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(62,207,142,.12); }
-
-/* ═══════════════════════════════════════════════════════════════════
-   MISC UTILITIES
-═══════════════════════════════════════════════════════════════════ */
-.flex        { display: flex; }
-.flex-col    { flex-direction: column; }
-.items-center{ align-items: center; }
-.items-start { align-items: flex-start; }
+/* Utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
-.gap-2  { gap: 6px; }
-.gap-3  { gap: 10px; }
-.gap-4  { gap: 14px; }
-.gap-6  { gap: 20px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
 .flex-1 { flex: 1; }
-.min-w-0{ min-width: 0; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-.mt-1 { margin-top: 4px; }
 .mt-2 { margin-top: 8px; }
 .mt-3 { margin-top: 12px; }
 .mt-4 { margin-top: 16px; }
-.mt-6 { margin-top: 24px; }
 .mb-2 { margin-bottom: 8px; }
 .mb-3 { margin-bottom: 12px; }
 .mb-4 { margin-bottom: 16px; }
-.mb-6 { margin-bottom: 24px; }
-.p-0  { padding: 0 !important; }
-.text-sm  { font-size: 12px; }
-.text-xs  { font-size: 11px; }
-.text-muted  { color: var(--text-muted); }
-.text-secondary { color: var(--text-secondary); }
-.text-primary   { color: var(--text-primary); }
-.text-emerald   { color: var(--emerald-dark); }
-.text-red       { color: var(--red); }
-.text-amber     { color: var(--amber); }
-.text-green     { color: var(--green); }
-.text-blue      { color: var(--blue); }
-.font-mono { font-family: "SF Mono","Fira Code",Menlo,monospace; }
 .font-bold { font-weight: 700; }
-.truncate  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sr-only   { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
-.divider   { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-.rounded   { border-radius: var(--radius); }
-.shadow    { box-shadow: var(--shadow); }
-.no-select { user-select: none; }
+.font-mono { font-family: var(--font-mono); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-red { color: var(--red); }
+.text-amber { color: var(--amber); }
+.text-green { color: var(--emerald-dark); }
 
-/* ── Focus visible ── */
-:focus-visible { outline: 2px solid var(--emerald); outline-offset: 2px; border-radius: 3px; }
-
-/* ── Tabs ── */
-.tabs-bar {
-  display: flex; border-bottom: 1px solid var(--border);
-  gap: 0; overflow-x: auto;
-}
-.tab-item {
-  padding: 10px 16px;
-  font-size: 13px; font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
-  user-select: none;
-}
-.tab-item:hover { color: var(--text-primary); }
-.tab-item.active {
-  color: var(--emerald-dark);
-  border-bottom-color: var(--emerald);
-  font-weight: 700;
-}
-.tab-panel { display: none; padding: 20px 0; }
-.tab-panel.active { display: block; }
-
-/* ── Chip tags for entity types ── */
-.chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; }
-.chip-red    { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border); }
-.chip-orange { background: #fff7ed;         color: #c2410c;      border: 1px solid #fed7aa; }
-.chip-amber  { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
-.chip-green  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
-.chip-blue   { background: var(--blue-bg);  color: var(--blue);  border: 1px solid var(--blue-border); }
-.chip-gray   { background: var(--bg-alt);   color: var(--text-secondary); border: 1px solid var(--border); }
-
-/* ═══════════════════════════════════════════════════════════════════
-   RESPONSIVE
-═══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
-  .main { margin-left: 0; }
-  .sidebar-toggle { display: flex; }
-  .stat-grid { grid-template-columns: 1fr 1fr; }
-  .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .page-content { padding: 16px; }
+  .header-container { padding: 0 16px; }
+  .page-content { padding: 20px 16px; }
+  .file-analysis-layout { grid-template-columns: 1fr; }
+  .document-preview-panel { position: static; }
+  .document-preview-frame { height: 70vh; }
 }
-@media (max-width: 540px) {
-  .stat-grid { grid-template-columns: 1fr; }
-  .topbar { padding: 0 12px 0 52px; }
-  table th:nth-child(n+4), table td:nth-child(n+4) { display: none; }
-}
-
-/* ── Sidebar overlay ── */
-.sidebar-overlay {
-  display: none;
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.45);
-  z-index: 199;
-}
-.sidebar-overlay.open { display: block; }
 </style>
 </head>
 <body>
 
-<!-- ── Mobile sidebar overlay ── -->
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Open navigation">☰</button>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SIDEBAR
-════════════════════════════════════════════════════════════ -->
-<nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
-  <div class="sidebar-brand">
-    <div class="brand-icon" aria-hidden="true">🛡</div>
-    <div>
-      <div class="brand-name">TPRM Platform</div>
-      <div class="brand-sub">Privacy-Preserving</div>
-    </div>
-  </div>
-
-  <div class="sidebar-section">Main</div>
-  <div class="nav-item active" id="nav-dashboard" onclick="goto('dashboard')" role="button" tabindex="0" aria-label="Overview dashboard">
-    <span class="nav-icon" aria-hidden="true">◈</span> Overview
-  </div>
-  <div class="nav-item" id="nav-assessments" onclick="goto('assessments')" role="button" tabindex="0" aria-label="Vendor assessments">
-    <span class="nav-icon" aria-hidden="true">📋</span> Assessments
-    <span class="nav-badge blue" id="badge-assessments">0</span>
-  </div>
-  <div class="nav-item" id="nav-upload" onclick="goto('upload')" role="button" tabindex="0" aria-label="New assessment upload">
-    <span class="nav-icon" aria-hidden="true">↑</span> New Assessment
-  </div>
-
-  <div class="sidebar-section">Security</div>
-  <div class="nav-item" id="nav-gate" onclick="goto('gate')" role="button" tabindex="0" aria-label="Security Gate">
-    <span class="nav-icon" aria-hidden="true">⬡</span> Security Gate
-    <span class="nav-badge" id="badge-gate" style="display:none"></span>
-  </div>
-  <div class="nav-item" id="nav-findings" onclick="goto('findings')" role="button" tabindex="0" aria-label="Risk findings">
-    <span class="nav-icon" aria-hidden="true">⚑</span> Risk Findings
-    <span class="nav-badge" id="badge-findings" style="display:none"></span>
-  </div>
-  <div class="nav-item" id="nav-workflow" onclick="goto('workflow')" role="button" tabindex="0" aria-label="Workflow and approvals">
-    <span class="nav-icon" aria-hidden="true">⇄</span> Workflow
-  </div>
-
-  <div class="sidebar-section">Compliance</div>
-  <div class="nav-item" id="nav-audit" onclick="goto('audit')" role="button" tabindex="0" aria-label="Audit trail">
-    <span class="nav-icon" aria-hidden="true">≡</span> Audit Trail
-  </div>
-  <div class="nav-item" id="nav-health" onclick="goto('health')" role="button" tabindex="0" aria-label="Service health">
-    <span class="nav-icon" aria-hidden="true">◎</span> Service Health
-  </div>
-
-  <div class="sidebar-footer">
-    <div class="service-status">
-      <div class="status-dot dot-green" id="sd-gate" aria-hidden="true"></div>
-      <span>Security Gate</span>
-    </div>
-    <div class="service-status">
-      <div class="status-dot dot-amber" id="sd-ollama" aria-hidden="true"></div>
-      <span>Ollama (mock)</span>
-    </div>
-    <div class="service-status">
-      <div class="status-dot dot-gray" id="sd-db" aria-hidden="true"></div>
-      <span>DB (in-memory)</span>
-    </div>
-  </div>
-</nav>
-
-<!-- ═══════════════════════════════════════════════════════════
-     MAIN CONTENT
-════════════════════════════════════════════════════════════ -->
-<main class="main" id="main">
-  <header class="topbar">
-    <div>
-      <span class="topbar-title" id="topbar-title">Overview</span>
-      <span class="topbar-sub" id="topbar-sub"></span>
-    </div>
-    <div class="topbar-right">
-      <div class="topbar-badge" id="topbar-status">
-        <div class="status-dot dot-green" aria-hidden="true"></div>
-        <span>System Operational</span>
+<!-- ===================================================================
+     HEADER NAVIGATION ONLY (Assessments + New Assessment)
+=================================================================== -->
+<header class="app-header">
+  <div class="header-container">
+    <!-- Brand: Logo + Name -->
+    <div class="brand" onclick="goto('assessments')" role="button" tabindex="0" aria-label="TPRM Platform Home">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">TPRM Platform</div>
+        <span class="brand-subtitle">Privacy-Preserving</span>
       </div>
     </div>
-  </header>
 
+    <!-- Navigation links - Only Assessments and New Assessment -->
+    <nav class="header-nav" role="navigation" aria-label="Main Navigation">
+      <button class="nav-btn active" id="nav-assessments" onclick="goto('assessments')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+        <span>Assessments</span>
+        <span class="nav-badge" id="badge-assessments">0</span>
+      </button>
+      <button class="nav-btn" id="nav-upload" onclick="goto('upload')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <span>New Assessment</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ===================================================================
+     MAIN CONTENT (SPA dynamic content page)
+=================================================================== -->
+<main class="main" id="main">
   <div class="page-content" id="page-content">
-    <!-- Screens are rendered here by JS -->
+    <!-- Screens & file pages rendered here dynamically -->
   </div>
 </main>
 
 <div id="toast-container" role="alert" aria-live="polite"></div>
 
-
 <script>
 'use strict';
-// ═══════════════════════════════════════════════════════════════════
-//  CONSTANTS & API CLIENT
-// ═══════════════════════════════════════════════════════════════════
+
 const API_KEY = 'dev-insecure-key';
 const BASE    = '/api/v1';
 
@@ -996,715 +1021,671 @@ async function api(path, opts = {}) {
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({ error: r.statusText }));
-    throw Object.assign(new Error(err.detail || err.error || 'Request failed'), { status: r.status });
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map(item => `${item.loc?.join('.') || 'request'}: ${item.msg}`).join('; ')
+      : err.detail || err.error;
+    throw Object.assign(new Error(detail || r.statusText || 'Request failed'), { status: r.status });
   }
   return r.json();
 }
 
-// ── App state ──────────────────────────────────────────────────────
-const state = {
-  currentScreen: 'dashboard',
-  assessments: [],
-  findings: [],
-  gateDecisions: [],
-  auditEvents: [],
-  dashboard: null,
-  selectedAssessment: null,
-};
-
-// ═══════════════════════════════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════════════════════════════
-function toast(msg, type = 'success', duration = 4000) {
-  const c = document.getElementById('toast-container');
-  const icons = { success: '✓', error: '✗', warn: '⚠' };
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
-  el.innerHTML = `<span>${icons[type] || '•'}</span><span>${esc(msg)}</span>`;
-  c.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, duration);
+async function deleteAssessment(assessmentId, filename) {
+  filename = filename || state.assessments.find(a => a.assessment_id === assessmentId)?.filename || 'this file';
+  if (!window.confirm(`Delete "${filename}" and all of its analysis?`)) return;
+  try {
+    await api(`/assessments/${assessmentId}`, { method: 'DELETE' });
+    state.assessments = state.assessments.filter(a => a.assessment_id !== assessmentId);
+    toast('File and analysis deleted', 'success');
+    await renderAssessments(document.getElementById('page-content'));
+  } catch (error) {
+    toast(error.message, 'error');
+  }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  UTILITIES
-// ═══════════════════════════════════════════════════════════════════
+const state = {
+  currentScreen: 'assessments',
+  assessments: [],
+  activeFileId: null,
+  previewMode: 'original'
+};
+
+// ===================================================================
+//  SVG ICONS (Crisp scalable vectors, no emojis)
+// ===================================================================
+const SVG_ICONS = {
+  shield: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  'shield-check': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  file: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+  folder: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
+  upload: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+  search: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>`,
+  alert: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>`,
+  'alert-circle': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
+  check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  x: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>`,
+  clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>`,
+  lock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  mail: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+  phone: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  user: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  'credit-card': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>`,
+  building: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/></svg>`,
+  globe: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  server: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>`,
+  calendar: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>`,
+  pin: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`,
+  calculator: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>`,
+  chevron: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+  arrow: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  'arrow-left': `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`
+};
+
+function svg(name, size = 16, extraCls = '') {
+  let code = SVG_ICONS[name] || SVG_ICONS.file;
+  if (size !== 16) {
+    code = code.replace(/width="\d+"/, `width="${size}"`).replace(/height="\d+"/, `height="${size}"`);
+  }
+  if (extraCls) {
+    code = code.replace('<svg ', `<svg class="${extraCls}" `);
+  }
+  return code;
+}
+
+// ===================================================================
+//  ENTITY DISPLAY TYPES
+// ===================================================================
+const ETYPES = {
+  API_KEY:           { label: 'API Key',           chip: 'chip-red',    icon: 'key' },
+  PEM_PRIVATE_KEY:   { label: 'Private Key',       chip: 'chip-red',    icon: 'lock' },
+  CREDENTIAL_URL:    { label: 'URL Credentials',   chip: 'chip-red',    icon: 'lock' },
+  US_SSN:            { label: 'Social Security ID',chip: 'chip-red',    icon: 'user' },
+  CREDIT_CARD:       { label: 'Credit Card',       chip: 'chip-red',    icon: 'credit-card' },
+  IBAN_CODE:         { label: 'Bank IBAN',         chip: 'chip-red',    icon: 'building' },
+  BANK_ACCOUNT:      { label: 'Bank Account',      chip: 'chip-red',    icon: 'building' },
+  EMAIL_ADDRESS:     { label: 'Email Address',     chip: 'chip-orange', icon: 'mail' },
+  PHONE_NUMBER:      { label: 'Phone Number',      chip: 'chip-orange', icon: 'phone' },
+  PERSON:            { label: 'Personnel Name',    chip: 'chip-orange', icon: 'user' },
+  IP_ADDRESS:        { label: 'Internal IP',       chip: 'chip-amber',  icon: 'globe' },
+  INTERNAL_HOSTNAME: { label: 'Server Hostname',   chip: 'chip-amber',  icon: 'server' },
+  EMPLOYEE_ID:       { label: 'Employee ID',       chip: 'chip-amber',  icon: 'user' },
+  DATE_OF_BIRTH:     { label: 'Date of Birth',     chip: 'chip-red',    icon: 'calendar' },
+  CONTRACT_NUMBER:   { label: 'Contract Ref',      chip: 'chip-blue',   icon: 'file' },
+  MAC_ADDRESS:       { label: 'Network MAC',       chip: 'chip-amber',  icon: 'server' },
+};
+
+function entityChip(t) {
+  const d = ETYPES[t] || { label: t.replace(/_/g,' '), chip:'chip-gray', icon:'alert' };
+  return `<span class="chip ${d.chip}">${svg(d.icon, 13)} ${esc(d.label)}</span>`;
+}
+
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function fmtDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (!iso) return '&mdash;';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
 }
-function fmtTime(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-function fmtDateTime(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-}
-function timeAgo(iso) {
-  if (!iso) return '';
-  const sec = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (sec < 60) return 'just now';
-  if (sec < 3600) return `${Math.floor(sec/60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec/3600)}h ago`;
-  return `${Math.floor(sec/86400)}d ago`;
-}
-
-// Severity helpers
-const SEV_BADGE = {
-  Critical: 'badge-red',
-  High:     'badge badge-red',
-  Medium:   'badge badge-amber',
-  Low:      'badge badge-green',
-};
 function sevBadge(sev) {
   const cls = { Critical:'badge-red', High:'badge-red', Medium:'badge-amber', Low:'badge-green' }[sev] || 'badge-gray';
-  const dot = { Critical:'🔴', High:'🟠', Medium:'🟡', Low:'🟢' }[sev] || '⚪';
-  return `<span class="badge ${cls}">${dot} ${esc(sev)}</span>`;
+  const icon = { Critical:'alert-circle', High:'alert', Medium:'alert', Low:'check' }[sev] || 'file';
+  return `<span class="badge ${cls}">${svg(icon, 12)} ${esc(sev)}</span>`;
 }
 function sensitivityBadge(s) {
   const map = { RESTRICTED:'badge-red', CONFIDENTIAL:'badge-amber', INTERNAL:'badge-blue', PUBLIC:'badge-green' };
   return `<span class="badge ${map[s]||'badge-gray'}">${esc(s)}</span>`;
 }
-function statusBadge(s) {
-  const map = {
-    Draft:'badge-gray', InReview:'badge-blue', RemediationRequested:'badge-amber',
-    RemediationInProgress:'badge-amber', Verified:'badge-green', Accepted:'badge-emerald',
-    Rejected:'badge-red', Escalated:'badge-red',
+function toast(msg, type = 'success', duration = 4000) {
+  const c = document.getElementById('toast-container');
+  const icon = type === 'success' ? svg('check', 16) : svg('alert-circle', 16);
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${icon}</span><span>${esc(msg)}</span>`;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, duration);
+}
+
+// ===================================================================
+//  PASSAGE HIGHLIGHTER (PII highlighted passage-wise)
+// ===================================================================
+function highlightPIIInPassage(text, entityTypes = [], detectedEntities = [], severity = 'Medium') {
+  if (!text) return '';
+  let safe = esc(text);
+  const markClass = `pii-mark-${String(severity).toLowerCase()}`;
+
+  [...detectedEntities]
+    .sort((a, b) => String(b.value || '').length - String(a.value || '').length)
+    .forEach(entity => {
+      if (!entity.value) return;
+      const escapedValue = esc(entity.value);
+      const escapedPattern = escapedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      safe = safe.replace(
+        new RegExp(escapedPattern, 'g'),
+        `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span class="pii-val">${escapedValue}</span></mark>`
+      );
+    });
+
+  safe = safe.replace(/&lt;&lt;([A-Z_]+)_([a-zA-Z0-9]+)&gt;&gt;/g, (match, type, id) => {
+    const label = (ETYPES[type]?.label || type).replace(/_/g, ' ');
+    return `<mark class="pii-mark ${markClass}">${svg('key', 12)} <span class="pii-val">&lt;&lt;${type}_${id}&gt;&gt;</span> (${esc(label)})</mark>`;
+  });
+
+  safe = safe.replace(/\[REDACTED:([A-Z_]+)\]/g, (match, type) => {
+    const label = (ETYPES[type]?.label || type).replace(/_/g, ' ');
+    return `<mark class="pii-mark ${markClass}">${svg('lock', 12)} <span class="pii-val">[Protected: ${esc(label)}]</span></mark>`;
+  });
+  safe = safe.replace(/\[HOST:[^\]]+\]/gi, () => {
+    return `<mark class="pii-mark ${markClass}">${svg('server', 12)} <span class="pii-val">[Protected: Internal Hostname]</span></mark>`;
+  });
+
+  safe = safe.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, (match) => {
+    return `<mark class="pii-mark ${markClass}">${svg('mail', 12)} <span class="pii-val">${match}</span></mark>`;
+  });
+
+  const phrasePatterns = {
+    'API_KEY': ['api key', 'secret credential', 'secret key', 'access token'],
+    'PEM_PRIVATE_KEY': ['private key', 'cryptographic key'],
+    'CREDENTIAL_URL': ['credential url', 'password in url'],
+    'US_SSN': ['social security number', 'ssn'],
+    'CREDIT_CARD': ['credit card', 'payment card', 'card number'],
+    'IBAN_CODE': ['bank account', 'iban'],
+    'BANK_ACCOUNT': ['bank account', 'account number'],
+    'EMAIL_ADDRESS': ['email address', 'email addresses', 'contact email'],
+    'PHONE_NUMBER': ['phone number', 'phone numbers', 'direct phone'],
+    'PERSON': ["person's name", "employee names"],
+    'IP_ADDRESS': ['internal ip', 'ip address'],
+    'INTERNAL_HOSTNAME': ['server hostname', 'internal server'],
+    'EMPLOYEE_ID': ['employee id', 'staff id'],
+    'DATE_OF_BIRTH': ['date of birth', 'birth date'],
+    'CONTRACT_NUMBER': ['contract number', 'purchase order'],
+    'MAC_ADDRESS': ['mac address', 'hardware address']
   };
-  return `<span class="badge ${map[s]||'badge-gray'}">${esc(s)}</span>`;
-}
-function stageBadge(stage) {
-  const map = { ingestion:'badge-blue', pii:'badge-purple', nlp:'badge-blue',
-    policy:'badge-amber', sanitize:'badge-amber', gate:'badge-red',
-    ai:'badge-blue', risk:'badge-amber', onetrust:'badge-green' };
-  return `<span class="badge ${map[stage]||'badge-gray'}">${esc(stage)}</span>`;
-}
-function actionBadge(action) {
-  const map = { passed:'badge-emerald', quarantine:'badge-red', analyzed:'badge-blue',
-    sanitized:'badge-amber', detected:'badge-purple', classified:'badge-blue',
-    parsed:'badge-gray', findings_generated:'badge-green' };
-  return `<span class="badge ${map[action]||'badge-gray'}">${esc(action)}</span>`;
+
+  entityTypes.forEach(t => {
+    const phrases = phrasePatterns[t] || [];
+    phrases.forEach(phrase => {
+      const re = new RegExp(`\\b(${phrase})\\b`, 'gi');
+      safe = safe.replace(re, `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span>$1</span></mark>`);
+    });
+  });
+
+  return safe;
 }
 
-// Entity type display
-const ETYPES = {
-  API_KEY:           { label:'API Key',          chip:'chip-red',    icon:'🔑' },
-  PEM_PRIVATE_KEY:   { label:'Private Key',       chip:'chip-red',    icon:'🔐' },
-  CREDENTIAL_URL:    { label:'Credential URL',    chip:'chip-red',    icon:'🔓' },
-  US_SSN:            { label:'SSN',               chip:'chip-red',    icon:'🪪' },
-  CREDIT_CARD:       { label:'Credit Card',       chip:'chip-red',    icon:'💳' },
-  IBAN_CODE:         { label:'IBAN',              chip:'chip-red',    icon:'🏦' },
-  BANK_ACCOUNT:      { label:'Bank Account',      chip:'chip-red',    icon:'🏦' },
-  EMAIL_ADDRESS:     { label:'Email',             chip:'chip-orange', icon:'📧' },
-  PHONE_NUMBER:      { label:'Phone',             chip:'chip-orange', icon:'📞' },
-  PERSON:            { label:'Name',              chip:'chip-orange', icon:'👤' },
-  IP_ADDRESS:        { label:'Internal IP',       chip:'chip-amber',  icon:'🌐' },
-  INTERNAL_HOSTNAME: { label:'Hostname',          chip:'chip-amber',  icon:'🖥' },
-  EMPLOYEE_ID:       { label:'Employee ID',       chip:'chip-amber',  icon:'🪪' },
-  DATE_OF_BIRTH:     { label:'Date of Birth',     chip:'chip-red',    icon:'📅' },
-  CONTRACT_NUMBER:   { label:'Contract №',        chip:'chip-blue',   icon:'📄' },
-  MAC_ADDRESS:       { label:'MAC Address',       chip:'chip-amber',  icon:'🔌' },
-};
-function entityChip(t) {
-  const d = ETYPES[t] || { label: t.replace(/_/g,' '), chip:'chip-gray', icon:'⚠' };
-  return `<span class="chip ${d.chip}">${d.icon} ${d.label}</span>`;
+function simpleRecommendedAction(finding) {
+  const category = String(finding.risk_category || '').replace(/_/g, ' ').toLowerCase();
+  if (category.includes('access')) return 'Ask the vendor to limit access to only the people who need it and review access regularly.';
+  if (category.includes('encryption')) return 'Ask the vendor to protect this information when it is stored and sent.';
+  if (category.includes('incident')) return 'Ask the vendor to keep a clear plan for handling and reporting security incidents.';
+  if (category.includes('privacy')) return 'Ask the vendor to remove information they do not need and keep only what is required.';
+  return 'Ask the vendor to remove or hide the sensitive information before sharing this document.';
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  NAVIGATION
-// ═══════════════════════════════════════════════════════════════════
-const SCREENS = {
-  dashboard:'Overview', assessments:'Assessments', upload:'New Assessment',
-  gate:'Security Gate', findings:'Risk Findings', workflow:'Workflow & Approvals',
-  audit:'Audit Trail', health:'Service Health',
-};
-const SCREEN_SUBS = {
-  dashboard:'Privacy-preserving vendor risk pipeline',
-  assessments:'All vendor document assessments',
-  upload:'Submit a vendor document for assessment',
-  gate:'Trust boundary — private zone → AI zone',
-  findings:'Normalised risk findings across all vendors',
-  workflow:'Assessment review and approval workflow',
-  audit:'Hash-chained immutable audit log',
-  health:'Pipeline component status',
-};
-
+// ===================================================================
+//  NAVIGATION (Only Assessments and New Assessment)
+// ===================================================================
 function goto(screen, data) {
   state.currentScreen = screen;
-  if (data) state[`${screen}Data`] = data;
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const nav = document.getElementById(`nav-${screen}`);
-  if (nav) nav.classList.add('active');
-  document.getElementById('topbar-title').textContent = SCREENS[screen] || screen;
-  document.getElementById('topbar-sub').textContent = SCREEN_SUBS[screen] || '';
-  closeSidebar();
-  renderScreen(screen);
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`nav-${screen}`)?.classList.add('active');
+  renderScreen(screen, data);
 }
 
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebarOverlay').classList.toggle('open');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
-}
-
-// Keyboard nav for sidebar items
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.classList.contains('nav-item')) e.target.click();
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN ROUTER
-// ═══════════════════════════════════════════════════════════════════
-async function renderScreen(screen) {
+async function renderScreen(screen, data) {
   const el = document.getElementById('page-content');
-  el.innerHTML = loadingHTML();
+  el.innerHTML = `<div class="empty-state"><div class="spin spin-dark" style="width:36px;height:36px;border-width:3px"></div><div class="empty-title mt-3">Loading&hellip;</div></div>`;
   try {
     switch (screen) {
-      case 'dashboard':   await renderDashboard(el); break;
       case 'assessments': await renderAssessments(el); break;
       case 'upload':      renderUpload(el); break;
-      case 'gate':        await renderGate(el); break;
-      case 'findings':    await renderFindings(el); break;
-      case 'workflow':    await renderWorkflow(el); break;
-      case 'audit':       await renderAudit(el); break;
-      case 'health':      await renderHealth(el); break;
-      default: el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Screen not found</div></div>`;
+      case 'file-detail': await renderFilePageById(data, el); break;
+      default: await renderAssessments(el);
     }
   } catch(e) {
-    el.innerHTML = errorHTML(e.message);
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">${svg('alert-circle', 40)}</div><div class="empty-title">Error loading data</div><div class="empty-desc">${esc(e.message)}</div><button class="btn btn-secondary mt-3" onclick="goto('assessments')">Back to Assessments</button></div>`;
   }
 }
 
-function loadingHTML() {
-  return `<div class="empty-state"><div class="spin spin-dark" style="width:32px;height:32px;border-width:3px"></div><div class="empty-title mt-3">Loading…</div></div>`;
-}
-function errorHTML(msg) {
-  return `<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-title">Error loading data</div><div class="empty-desc">${esc(msg)}</div><button class="btn btn-secondary mt-3" onclick="renderScreen(state.currentScreen)">Try again</button></div>`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 1 — DASHBOARD
-// ═══════════════════════════════════════════════════════════════════
-async function renderDashboard(el) {
-  let d;
-  try { d = await api('/dashboard'); } catch(_) { d = emptyDashboard(); }
-
-  // Update sidebar badges
-  document.getElementById('badge-assessments').textContent = d.total_assessments || 0;
-  const crit = (d.high_critical_findings || 0);
-  const bFind = document.getElementById('badge-findings');
-  bFind.textContent = crit; bFind.style.display = crit > 0 ? '' : 'none';
-  const bGate = document.getElementById('badge-gate');
-  bGate.textContent = d.quarantined || 0;
-  bGate.className = 'nav-badge' + (d.quarantined > 0 ? '' : ' amber');
-  bGate.style.display = d.quarantined > 0 ? '' : 'none';
-
-  const recentRows = (d.recent_assessments || []).map(a => `
-    <tr>
-      <td><span class="font-bold truncate" style="max-width:180px;display:block">${esc(a.vendor_id)}</span>
-          <span class="td-muted">${esc(a.filename)}</span></td>
-      <td>${sensitivityBadge(a.sensitivity)}</td>
-      <td>${statusBadge(a.workflow_status)}</td>
-      <td>${a.high_critical > 0 ? `<span class="text-red font-bold">${a.high_critical}</span>` : `<span class="text-muted">${a.finding_count}</span>`}</td>
-      <td class="td-muted">${timeAgo(a.created_at)}</td>
-      <td><button class="btn btn-secondary btn-sm" onclick="viewAssessment('${esc(a.assessment_id)}')">View</button></td>
-    </tr>`).join('') || `<tr><td colspan="6"><div class="empty-state" style="min-height:100px"><div class="empty-icon" style="font-size:28px">📋</div><div class="empty-desc">No assessments yet — upload a document to begin.</div></div></td></tr>`;
-
-  const auditRows = (d.recent_audit_events || []).slice(0, 8).map((e, i, arr) => `
-    <div class="audit-row">
-      <div class="audit-dot-col">
-        <div class="audit-dot-outer" style="border-color:${auditColor(e.stage)};background:${auditBg(e.stage)}"></div>
-        ${i < arr.length-1 ? '<div class="audit-line"></div>' : ''}
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">${stageBadge(e.stage)} ${actionBadge(e.action)}</div>
-        <div class="audit-meta">${esc(e.doc_id.slice(0,12))}… · ${fmtDateTime(e.ts)}</div>
-        ${Object.keys(e.counts||{}).length ? `<div class="audit-hash">${Object.entries(e.counts).map(([k,v])=>`${k}: ${v}`).join(' · ')}</div>` : ''}
-      </div>
-    </div>`).join('') || `<div class="empty-state" style="min-height:80px"><div class="empty-desc">No audit events yet.</div></div>`;
-
-  el.innerHTML = `
-    <div class="flex justify-between items-center mb-4">
-      <div>
-        <div class="page-title">Overview</div>
-        <div class="page-sub">Privacy-preserving vendor risk assessment pipeline</div>
-      </div>
-      <button class="btn btn-primary" onclick="goto('upload')">+ New Assessment</button>
-    </div>
-
-    <div class="stat-grid mb-6">
-      <div class="stat-card">
-        <div class="stat-label">Total Assessments</div>
-        <div class="stat-value">${d.total_assessments || 0}</div>
-        <div class="stat-hint">📋 All time</div>
-      </div>
-      <div class="stat-card accent-blue">
-        <div class="stat-label">In Progress</div>
-        <div class="stat-value">${d.in_progress || 0}</div>
-        <div class="stat-hint">⏳ Awaiting review</div>
-      </div>
-      <div class="stat-card ${d.high_critical_findings > 0 ? 'accent-red' : 'accent-green'}">
-        <div class="stat-label">High / Critical Findings</div>
-        <div class="stat-value">${d.high_critical_findings || 0}</div>
-        <div class="stat-hint">${d.high_critical_findings > 0 ? '⚠ Needs attention' : '✓ Within threshold'}</div>
-      </div>
-      <div class="stat-card ${d.quarantined > 0 ? 'accent-red' : 'accent-emerald'}">
-        <div class="stat-label">Gate Quarantined</div>
-        <div class="stat-value">${d.quarantined || 0}</div>
-        <div class="stat-hint">${d.quarantined > 0 ? '🚫 Blocked by Security Gate' : '✓ No violations'}</div>
-      </div>
-      <div class="stat-card accent-amber">
-        <div class="stat-label">Awaiting Approval</div>
-        <div class="stat-value">${d.awaiting_approval || 0}</div>
-        <div class="stat-hint">👤 Pending reviewer action</div>
-      </div>
-    </div>
-
-    <div class="grid-2 mb-6" style="gap:16px">
-      <div class="card">
-        <div class="card-header">
-          <div class="flex-1">
-            <div class="card-title">Recent Assessments</div>
-            <div class="card-sub">Most recent vendor document submissions</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="goto('assessments')">View all →</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Vendor</th><th>Sensitivity</th><th>Status</th><th>Findings</th><th>When</th><th></th></tr></thead>
-            <tbody id="dash-recent">${recentRows}</tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="flex-1">
-            <div class="card-title">Recent Audit Events</div>
-            <div class="card-sub">Hash-chained pipeline events</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="goto('audit')">View all →</button>
-        </div>
-        <div class="card-body" style="padding:12px 16px">
-          <div id="dash-audit">${auditRows}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="flex-1">
-          <div class="card-title">Security Gate — Trust Boundary</div>
-          <div class="card-sub">Only gate-approved, HMAC-signed payloads may reach the AI analysis zone</div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="goto('gate')">Inspect Gate →</button>
-      </div>
-      <div class="card-body">
-        <div class="gate-boundary">
-          <div class="gate-boundary-title">⬡ Privacy Architecture</div>
-          <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:center">
-            <div class="gate-zone gate-zone-private">
-              <div class="gate-zone-label zone-private-label">🔒 Private / Trusted Zone</div>
-              <div style="font-size:11px;color:rgba(255,255,255,.65)">Ingestion → PII Detection → NLP → Policy → Sensitivity → Sanitization</div>
-              <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.45)">No egress · Raw PII stays here · Vault-encrypted</div>
-            </div>
-            <div style="text-align:center;color:#fbbf24;font-size:20px">→</div>
-            <div class="gate-zone gate-zone-gate">
-              <div class="gate-zone-label zone-gate-label">⬡ Security Gate (only crossing point)</div>
-              <div style="font-size:11px;color:rgba(255,255,255,.65)">Re-scan · Vault check · Entropy check · Token grammar · HMAC sign</div>
-              <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.45)">Fail-closed · Any violation → quarantine</div>
-            </div>
-            <div style="text-align:center;color:#93c5fd;font-size:20px">→</div>
-            <div class="gate-zone gate-zone-ai">
-              <div class="gate-zone-label zone-ai-label">🤖 AI / Public Zone</div>
-              <div style="font-size:11px;color:rgba(255,255,255,.65)">AI Analysis → Risk Engine → Workflow → OneTrust</div>
-              <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.45)">Never sees raw PII · Only GateApprovedPayload</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function emptyDashboard() {
-  return { total_assessments:0, in_progress:0, high_critical_findings:0, quarantined:0, awaiting_approval:0, recent_assessments:[], recent_audit_events:[], services:{} };
-}
-function auditColor(stage) {
-  const m = { ingestion:'#3b82f6', pii:'#8b5cf6', nlp:'#3b82f6', policy:'#f59e0b',
-    sanitize:'#f59e0b', gate:'#f97316', ai:'#3b82f6', risk:'#f59e0b', onetrust:'#22c55e' };
-  return m[stage] || '#94a3b8';
-}
-function auditBg(stage) {
-  const m = { gate:'#fef3c7', ai:'#eff6ff', onetrust:'#f0fdf4', pii:'#f5f3ff' };
-  return m[stage] || 'transparent';
-}
-
-async function viewAssessment(id) {
-  goto('assessments');
-  await new Promise(r => setTimeout(r, 100));
-  document.getElementById('assessment-detail-trigger-' + id)?.click();
-}
-
-</script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 2 — ASSESSMENTS LIST
-// ═══════════════════════════════════════════════════════════════════
+// ===================================================================
+//  ASSESSMENTS SCREEN (List of files; If empty, embedded upload UI)
+// ===================================================================
 async function renderAssessments(el) {
   const list = await api('/assessments').catch(() => []);
   state.assessments = list;
+  document.getElementById('badge-assessments').textContent = list.length;
 
+  // IF NO FILES: Show upload UI directly!
   if (list.length === 0) {
     el.innerHTML = `
-      <div class="flex justify-between items-center mb-4">
-        <div><div class="page-title">Assessments</div><div class="page-sub">All vendor document assessments</div></div>
-        <button class="btn btn-primary" onclick="goto('upload')">+ New Assessment</button>
+      <div class="mb-4">
+        <div class="page-title">Assessments</div>
+        <div class="page-sub">Upload a vendor document to begin privacy-preserving risk assessment</div>
       </div>
-      <div class="card"><div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <div class="empty-title">No assessments yet</div>
-        <div class="empty-desc">Submit a vendor document to begin a privacy-preserving risk assessment.</div>
-        <button class="btn btn-primary mt-3" onclick="goto('upload')">Upload a document</button>
-      </div></div>`;
+      <div style="max-width:680px;margin:0 auto">
+        ${buildUploadCardHTML('upload-assess')}
+      </div>
+    `;
+    wireDropZone('upload-assess');
     return;
   }
 
+  // IF FILES EXIST: Show list of files with each file's individual counts
   const rows = list.map(a => `
-    <tr>
+    <tr style="cursor:pointer" onclick="viewFilePage('${esc(a.assessment_id)}')">
       <td>
-        <div class="font-bold">${esc(a.vendor_id)}</div>
-        <div class="td-muted truncate" style="max-width:180px">${esc(a.filename)}</div>
+        <div class="font-bold flex items-center gap-2">
+          <span style="color:var(--emerald)">${svg('file', 18)}</span>
+          <span>${esc(a.filename)}</span>
+        </div>
+        <div class="td-muted" style="margin-left:26px">Vendor: <strong>${esc(a.vendor_id)}</strong></div>
       </td>
       <td>${sensitivityBadge(a.sensitivity)}</td>
-      <td>${statusBadge(a.workflow_status)}</td>
       <td>
-        ${a.high_critical > 0 ? `<span class="badge badge-red">${a.high_critical} High/Crit</span>` : ''}
-        <span class="td-muted">${a.finding_count} total</span>
+        <div class="flex items-center gap-2">
+          ${a.high_critical > 0 ? `<span class="badge badge-red">${svg('alert-circle',12)} ${a.high_critical} High/Crit</span>` : `<span class="badge badge-green">${svg('check',12)} Clean</span>`}
+          <span class="td-muted">${a.finding_count} issue${a.finding_count !== 1 ? 's' : ''}</span>
+        </div>
       </td>
-      <td>
-        <span class="badge ${a.gate_passed ? 'badge-emerald' : 'badge-red'}">${a.gate_passed ? '✓ Passed' : '✗ Quarantined'}</span>
-      </td>
-      <td class="td-muted">${fmtDateTime(a.created_at)}</td>
-      <td>
-        <button id="assessment-detail-trigger-${esc(a.assessment_id)}" class="btn btn-secondary btn-sm" onclick="openAssessmentDetail('${esc(a.assessment_id)}')">View</button>
+      <td class="td-muted">${fmtDate(a.created_at)}</td>
+      <td style="text-align:right">
+        <div class="flex items-center justify-end gap-2">
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();viewFilePage('${esc(a.assessment_id)}')">
+            View File Analysis ${svg('arrow', 12)}
+          </button>
+          <button class="btn btn-danger btn-sm" title="Delete file and analysis" onclick="event.stopPropagation();deleteAssessment('${esc(a.assessment_id)}')">
+            ${svg('x', 12)} Delete
+          </button>
+        </div>
       </td>
     </tr>`).join('');
 
   el.innerHTML = `
-    <div class="flex justify-between items-center mb-4">
-      <div><div class="page-title">Assessments</div><div class="page-sub">${list.length} vendor document${list.length !== 1 ? 's' : ''} assessed</div></div>
-      <button class="btn btn-primary" onclick="goto('upload')">+ New Assessment</button>
+    <div class="mb-4">
+      <div class="page-title">Assessments</div>
+      <div class="page-sub">${list.length} evaluated vendor document${list.length !== 1 ? 's' : ''}</div>
     </div>
+
+    <!-- Files Table -->
     <div class="card mb-4">
-      <div class="card-header" style="gap:12px">
-        <div class="search-bar flex-1">
-          <span aria-hidden="true">🔍</span>
-          <input id="assess-search" type="search" placeholder="Search by vendor or filename…" oninput="filterAssessments()" aria-label="Search assessments">
+      <div class="card-header">
+        <div class="search-bar flex-1" style="max-width:380px">
+          ${svg('search', 15)}
+          <input id="file-search" type="search" placeholder="Search by file or vendor name&hellip;" oninput="filterFiles()">
         </div>
-        <select class="form-input" style="width:160px" id="assess-filter-status" onchange="filterAssessments()" aria-label="Filter by status">
-          <option value="">All statuses</option>
-          <option>Draft</option><option>InReview</option><option>RemediationRequested</option>
-          <option>Verified</option><option>Accepted</option><option>Rejected</option><option>Escalated</option>
-        </select>
-        <select class="form-input" style="width:160px" id="assess-filter-sens" onchange="filterAssessments()" aria-label="Filter by sensitivity">
+        <select class="form-input" style="width:160px" id="file-filter-sens" onchange="filterFiles()">
           <option value="">All sensitivity</option>
           <option>RESTRICTED</option><option>CONFIDENTIAL</option><option>INTERNAL</option><option>PUBLIC</option>
         </select>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Vendor / Document</th><th>Sensitivity</th><th>Workflow</th><th>Findings</th><th>Gate</th><th>Date</th><th></th></tr></thead>
-          <tbody id="assess-table">${rows}</tbody>
+          <thead><tr><th>Document / Vendor</th><th>Sensitivity</th><th>Risks Identified</th><th>Evaluated Date</th><th></th></tr></thead>
+          <tbody id="files-table-body">${rows}</tbody>
         </table>
       </div>
     </div>
-    <div id="assess-detail"></div>
+
+    <!-- Quick upload another document section -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">${svg('upload', 16)} Assess Another Document</div></div>
+      <div class="card-body" style="max-width:680px">
+        ${buildUploadCardHTML('upload-assess-sub')}
+      </div>
+    </div>
   `;
+
+  wireDropZone('upload-assess-sub');
 }
 
-function filterAssessments() {
-  const q   = document.getElementById('assess-search')?.value.toLowerCase() || '';
-  const st  = document.getElementById('assess-filter-status')?.value || '';
-  const sen = document.getElementById('assess-filter-sens')?.value || '';
-  const rows = document.querySelectorAll('#assess-table tr');
+function filterFiles() {
+  const q   = document.getElementById('file-search')?.value.toLowerCase() || '';
+  const sen = document.getElementById('file-filter-sens')?.value || '';
+  const rows = document.querySelectorAll('#files-table-body tr');
   rows.forEach(row => {
     const text = row.textContent.toLowerCase();
     const matchQ   = !q   || text.includes(q);
-    const matchSt  = !st  || text.includes(st.toLowerCase());
     const matchSen = !sen || text.includes(sen.toLowerCase());
-    row.style.display = (matchQ && matchSt && matchSen) ? '' : 'none';
+    row.style.display = (matchQ && matchSen) ? '' : 'none';
   });
 }
 
-async function openAssessmentDetail(id) {
-  const det = document.getElementById('assess-detail');
-  det.innerHTML = loadingHTML();
-  try {
-    const [detail, findings] = await Promise.all([
-      api(`/assessments/${id}`),
-      api(`/assessments/${id}/findings`),
-    ]);
-    const gr = detail.gate_report || {};
-    const timings = detail.stage_timings || {};
-    const maxMs = Math.max(...Object.values(timings).map(v => v * 1000), 1);
-    const timingHtml = Object.entries(timings).map(([k, v]) => {
-      const ms = Math.round(v * 1000), pct = Math.max(2, Math.round(ms / maxMs * 100));
-      return `<div class="timing-row">
-        <div class="timing-label">${esc(k.replace(/_/g,' '))}</div>
-        <div class="timing-track"><div class="timing-fill" style="width:${pct}%"></div></div>
-        <div class="timing-ms">${ms}ms</div>
-      </div>`;
-    }).join('');
+// ===================================================================
+//  DEDICATED FILE CONTENT PAGE (No reload, file-specific metrics)
+// ===================================================================
+async function viewFilePage(assessmentId) {
+  state.activeFileId = assessmentId;
+  const el = document.getElementById('page-content');
+  el.innerHTML = `<div class="empty-state"><div class="spin spin-dark" style="width:36px;height:36px;border-width:3px"></div><div class="empty-title mt-3">Loading file analysis&hellip;</div></div>`;
+  await renderFilePageById(assessmentId, el);
+}
 
-    const findingsHtml = findings.length
-      ? findings.sort((a,b) => b.score - a.score).map((f,i) => buildFindingCard(f,`d-${i}`)).join('')
-      : `<div class="empty-state" style="min-height:120px"><div class="empty-icon" style="font-size:32px">✓</div><div class="empty-title">No findings</div></div>`;
+async function renderFilePageById(assessmentId, el) {
+  const [detail, findings] = await Promise.all([
+    api(`/assessments/${assessmentId}`),
+    api(`/assessments/${assessmentId}/findings`),
+  ]);
 
-    det.innerHTML = `
-      <div class="card">
-        <div class="card-header">
-          <div class="flex-1">
-            <div class="card-title">📄 ${esc(detail.filename)}</div>
-            <div class="card-sub">Vendor: <strong>${esc(detail.vendor_id)}</strong> · ID: <span class="font-mono text-xs">${esc(id.slice(0,16))}…</span></div>
-          </div>
-          <div class="flex gap-2">
-            ${sensitivityBadge(detail.sensitivity)}
-            ${statusBadge(detail.workflow_status)}
-          </div>
-        </div>
-        <div class="card-body p-0">
-          <div class="tabs-bar">
-            <div class="tab-item active" onclick="switchTab(this,'tab-findings-${esc(id)}')">Findings (${findings.length})</div>
-            <div class="tab-item" onclick="switchTab(this,'tab-gate-${esc(id)}')">Gate Report</div>
-            <div class="tab-item" onclick="switchTab(this,'tab-timing-${esc(id)}')">Stage Timings</div>
-            <div class="tab-item" onclick="switchTab(this,'tab-workflow-${esc(id)}')">Workflow</div>
-          </div>
-          <div style="padding:16px 20px">
-            <div class="tab-panel active" id="tab-findings-${esc(id)}">${findingsHtml}</div>
-            <div class="tab-panel" id="tab-gate-${esc(id)}">
-              <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-                <div class="stat-card ${gr.passed ? 'accent-emerald':'accent-red'}">
-                  <div class="stat-label">Outcome</div>
-                  <div class="stat-value" style="font-size:18px">${gr.passed ? '✓ Passed':'✗ Quarantined'}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Total Blocks</div>
-                  <div class="stat-value">${gr.total_blocks || 0}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Safe Path</div>
-                  <div class="stat-value">${gr.safe_path_blocks || 0}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Sensitive Path</div>
-                  <div class="stat-value">${gr.sensitive_path_blocks || 0}</div>
-                </div>
-                <div class="stat-card ${gr.rescan_hits > 0 ? 'accent-red':''}">
-                  <div class="stat-label">Re-scan Hits</div>
-                  <div class="stat-value">${gr.rescan_hits || 0}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Re-routed</div>
-                  <div class="stat-value">${gr.rerouted_blocks || 0}</div>
-                </div>
-              </div>
-              ${buildGateChecks(gr)}
-              <div class="hmac-note mt-3">⚠ HMAC signature validity confirms payload integrity and authenticity under the configured signing key. It does not independently verify that the payload contains no PII — that is enforced by the gate re-scan, vault lookup, and entropy checks above.</div>
-            </div>
-            <div class="tab-panel" id="tab-timing-${esc(id)}">
-              <p class="text-sm text-muted mb-3">Wall-clock time per pipeline stage</p>
-              ${timingHtml || '<div class="empty-state" style="min-height:80px"><div class="empty-desc">No timing data.</div></div>'}
-            </div>
-            <div class="tab-panel" id="tab-workflow-${esc(id)}">
-              ${buildWorkflowPanel(detail, id)}
-            </div>
-          </div>
-        </div>
+  renderFilePage(detail, findings, el);
+}
+
+function renderFilePage(detail, findings, targetEl = null) {
+  const el = targetEl || document.getElementById('page-content');
+  const critN = findings.filter(f => f.severity === 'Critical').length;
+  const highN = findings.filter(f => f.severity === 'High').length;
+  const medN  = findings.filter(f => f.severity === 'Medium').length;
+  const lowN  = findings.filter(f => f.severity === 'Low').length;
+  const totalPIICount = detail.pii_exposure_count ?? findings.reduce((acc, f) => acc + (f.exposure_count || 0), 0);
+  const orderedFindings = [...findings].sort((a, b) => {
+    const pageA = Math.min(...(a.evidence_passages || []).map(p => Number(p.page) || 0), Number.MAX_SAFE_INTEGER);
+    const pageB = Math.min(...(b.evidence_passages || []).map(p => Number(p.page) || 0), Number.MAX_SAFE_INTEGER);
+    return pageA - pageB || b.score - a.score;
+  });
+  const findingCardsHtml = orderedFindings.length
+    ? orderedFindings.map((f, i) => buildFindingCard(f, `f-${i}`, detail.filename)).join('')
+    : `<div class="card"><div class="empty-state"><div class="empty-icon">${svg('check', 44)}</div><div class="empty-title">Clean Document</div><div class="empty-desc">No sensitive data or security risks identified in this file.</div></div></div>`;
+
+  el.innerHTML = `
+    <div class="back-btn-bar">
+      <button class="btn btn-secondary btn-sm" onclick="goto('assessments')">
+        ${svg('arrow-left', 14)} <span>Back to all files</span>
+      </button>
+      <div class="file-page-compact-title">
+        <strong>${esc(detail.filename)}</strong>
+        <span>Vendor: ${esc(detail.vendor_id)}</span>
       </div>
-    `;
-  } catch(e) {
-    det.innerHTML = errorHTML(e.message);
-  }
-}
-
-function buildGateChecks(gr) {
-  const checks = [
-    { name:'PII Re-scan', desc:'Independent Presidio pass over all sanitized blocks (threshold 0.30)', pass: gr.rescan_hits === 0 },
-    { name:'Vault Lookup', desc:'No known raw values appear verbatim or normalised in output', pass: true },
-    { name:'Token Grammar', desc:'All [REDACTED:TYPE] and <<TYPE_xxxxxxxx>> placeholders are well-formed', pass: true },
-    { name:'Entropy Check', desc:'No substring > 20 chars exceeds 4.5 bits/char Shannon entropy', pass: true },
-    { name:'HMAC Signature', desc:'Payload signed with HMAC-SHA256; signature verified at AI analysis entry', pass: gr.passed },
-  ];
-  return `<div class="mb-2 section-title">Gate Checks</div>
-    ${checks.map(c => `
-      <div class="gate-check">
-        <div class="gate-check-icon">${c.pass ? '✅':'❌'}</div>
-        <div>
-          <div class="gate-check-name">${esc(c.name)}</div>
-          <div class="gate-check-desc">${esc(c.desc)}</div>
+    </div>
+    <div class="stat-grid mb-4">
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Critical Findings</div><div class="stat-value text-red">${critN}</div><div class="stat-hint">Score &ge; 75 in this file</div></div><div class="stat-icon-wrap red">${svg('alert-circle', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">High Findings</div><div class="stat-value text-amber">${highN}</div><div class="stat-hint">Score 50-74 in this file</div></div><div class="stat-icon-wrap amber">${svg('alert', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Medium Findings</div><div class="stat-value">${medN}</div><div class="stat-hint">Score 25-49 in this file</div></div><div class="stat-icon-wrap blue">${svg('clock', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Low Findings</div><div class="stat-value text-green">${lowN}</div><div class="stat-hint">Score &lt; 25 in this file</div></div><div class="stat-icon-wrap green">${svg('check', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Sensitive Data Exposures</div><div class="stat-value" style="color:var(--purple)">${totalPIICount}</div><div class="stat-hint">Identified PII tokens in this file</div></div><div class="stat-icon-wrap" style="background:#f5f3ff;color:var(--purple)">${svg('shield-check', 20)}</div></div>
+    </div>
+    <div class="mb-3"><div class="section-title mb-2">Detailed Findings for ${esc(detail.filename)}</div></div>
+    <div class="file-analysis-layout">
+      <div class="findings-column">
+        <div id="file-findings-list">${findingCardsHtml}</div>
+      </div>
+      <aside class="document-preview-panel">
+        <div class="document-preview-toolbar">
+          <div class="document-preview-title">${svg('file', 14)} Document preview</div>
+          <div class="preview-toggle" role="group" aria-label="Document preview mode">
+            <button class="btn btn-secondary btn-sm preview-mode-btn active" data-preview-mode="original" onclick="switchPreviewMode('${esc(detail.assessment_id)}', '${esc(detail.filename)}', 'original')">Original</button>
+            <button class="btn btn-secondary btn-sm preview-mode-btn" data-preview-mode="masked" onclick="switchPreviewMode('${esc(detail.assessment_id)}', '${esc(detail.filename)}', 'masked')">Masked</button>
+          </div>
         </div>
-        <span class="badge ${c.pass ? 'badge-emerald':'badge-red'}" style="margin-left:auto">${c.pass ? 'Pass':'Fail'}</span>
-      </div>`).join('')}`;
+        <div id="document-preview-content" class="document-preview-empty">Loading document preview&hellip;</div>
+      </aside>
+    </div>
+  `;
+
+  state.previewMode = 'original';
+  loadDocumentPreview(detail.assessment_id, detail.filename, 'original');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function buildWorkflowPanel(detail, id) {
-  const states = ['Draft','InReview','RemediationRequested','RemediationInProgress','Verified','Accepted'];
-  const current = detail.workflow_status || 'Draft';
-  const idx = states.indexOf(current);
-  const nodes = states.map((s, i) => {
-    let cls = 'wf-circle';
-    if (i < idx) cls += ' wf-done';
-    else if (i === idx) cls += ' wf-active';
-    const icon = i < idx ? '✓' : i === idx ? '●' : '○';
-    return `<div class="wf-node">
-      <div class="${cls}" title="${esc(s)}">${icon}</div>
-      <div class="wf-label">${esc(s)}</div>
-    </div>${i < states.length-1 ? '<div class="wf-arrow">→</div>' : ''}`;
+async function switchPreviewMode(assessmentId, filename, mode) {
+  state.previewMode = mode;
+  document.querySelectorAll('.preview-mode-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.previewMode === mode);
+  });
+  await loadDocumentPreview(assessmentId, filename, mode);
+}
+
+async function loadDocumentPreview(assessmentId, filename, mode = 'original', page = null) {
+  const target = document.getElementById('document-preview-content');
+  if (!target) return;
+  if (!String(filename || '').toLowerCase().endsWith('.pdf')) {
+    target.textContent = 'Preview is available for PDF files. Use the highlighted passages for this document.';
+    return;
+  }
+  try {
+    const response = await fetch(`${BASE}/assessments/${assessmentId}/document?mode=${mode}`, {
+      headers: { 'X-API-Key': API_KEY },
+    });
+    if (!response.ok) throw new Error('Unable to load document preview');
+    const url = URL.createObjectURL(await response.blob());
+    target.className = '';
+    target.innerHTML = `<iframe class="document-preview-frame" title="PDF preview of ${esc(filename)}" src="${url}#toolbar=0&navpanes=0&scrollbar=1&statusbar=0&messages=0&view=FitH${page !== null ? `&page=${page + 1}` : ''}"></iframe>`;
+  } catch (error) {
+    target.textContent = error.message;
+  }
+
+}
+
+function focusFindingInDocument(page) {
+  const frame = document.querySelector('.document-preview-frame');
+  if (!frame) return;
+  const currentUrl = new URL(frame.src);
+  currentUrl.hash = `toolbar=0&navpanes=0&scrollbar=1&statusbar=0&messages=0&view=FitH&page=${Number(page) + 1}`;
+  frame.classList.remove('document-focus-pulse');
+  void frame.offsetWidth;
+  frame.classList.add('document-focus-pulse');
+  frame.src = currentUrl.toString();
+  setTimeout(() => frame.classList.remove('document-focus-pulse'), 5000);
+}
+
+// ===================================================================
+//  FINDING CARD BUILDER
+// ===================================================================
+function buildFindingCard(f, uid, filename = '') {
+  const etypes = (f.entity_types_found || []);
+  const chips = etypes.slice(0, 4).map(entityChip).join('');
+  const more = etypes.length > 4 ? `<span class="text-xs text-muted">+${etypes.length - 4} more</span>` : '';
+  const loc = f.section_label ? `<div class="finding-location">${svg('pin', 12)} ${esc(f.section_label)}</div>` : '';
+
+  const desc = f.description || '';
+  const sentRx = /[^.!?]+[.!?]+/g;
+  const sents = (desc.match(sentRx) || [desc]).map(s => s.trim()).filter(Boolean);
+  const passages = f.evidence_passages || [];
+  const firstPage = passages.length ? Number(passages[0].page) || 0 : 0;
+  const passageExcerpt = passages.map(p => p.text).filter(Boolean).join('\n\n') || sents[0] || desc;
+  const whyReason = sents.length > 1 ? sents.slice(1, -1).join(' ').trim() || sents[1] : '';
+  const actionText = simpleRecommendedAction(f);
+
+  const highlightedPassage = passages.length
+    ? passages.map(p => `
+      <div class="passage-block">
+        <div class="passage-block-meta">Page ${esc(p.page)}${p.section_label ? ` &middot; ${esc(p.section_label)}` : ''}</div>
+        <div>${highlightPIIInPassage(p.text, p.entity_types || etypes, p.detected_entities || [], f.severity)}</div>
+        ${(p.detected_entities || []).length ? `
+          <div class="detected-pii-list">
+            ${p.detected_entities.map(entity => `<mark class="pii-mark pii-mark-${String(f.severity).toLowerCase()} detected-pii"><strong>${esc(entity.entity_type)}:</strong> ${esc(entity.value)}</mark>`).join('')}
+          </div>` : ''}
+      </div>`).join('')
+    : highlightPIIInPassage(passageExcerpt, etypes, [], f.severity);
+
+  const plainControls = (f.controls || []).map(c => {
+    const fw = esc(c.framework || 'Security Standard');
+    const nm = esc(c.name || c.ref || 'Access Control');
+    return `<span class="chip chip-gray">${svg('shield-check', 12)} ${fw}: ${nm}</span>`;
   }).join('');
 
-  const transitions = {
-    Draft: [['InReview', 'Submit for Review', 'btn-primary']],
-    InReview: [['RemediationRequested','Request Remediation','btn-secondary'],['Verified','Mark Verified','btn-primary'],['Escalated','Escalate','btn-danger']],
-    RemediationRequested: [['RemediationInProgress','Start Remediation','btn-secondary']],
-    RemediationInProgress: [['Verified','Mark Verified','btn-primary']],
-    Verified: [['Accepted','Accept','btn-primary'],['Rejected','Reject','btn-danger']],
-    Escalated: [['Accepted','Accept','btn-primary'],['Rejected','Reject','btn-danger']],
-  };
-  const buttons = (transitions[current] || []).map(([to, label, cls]) =>
-    `<button class="btn ${cls} btn-sm" onclick="transitionAssessment('${esc(id)}','${esc(to)}')">${esc(label)}</button>`
-  ).join('');
+  return `
+    <div class="finding-card sev-${esc(f.severity)}">
+      <div class="finding-card-top" onclick="toggleFinding('${uid}', ${firstPage})">
+        <div class="finding-stripe"></div>
+        <div class="finding-body">
+          ${loc}
+          ${chips || more ? `<div class="finding-chips">${chips}${more}</div>` : ''}
+          <div class="finding-title">${esc(f.title)}</div>
+          <div class="finding-desc">${esc(passageExcerpt.slice(0, 140))}${passageExcerpt.length > 140 ? '&hellip;' : ''}</div>
+        </div>
+        <div class="finding-right">
+          <div class="score-ring sr-${esc(f.severity)}">
+            ${f.score}<div style="font-size:8px;font-weight:400;color:var(--text-muted)">/100</div>
+          </div>
+          ${sevBadge(f.severity)}
+          <div class="finding-chevron" id="fc-${uid}">${svg('chevron', 14)}</div>
+        </div>
+      </div>
+
+      <div class="finding-detail" id="fd-${uid}">
+        <!-- 1. PASSAGE-WISE PII HIGHLIGHT -->
+        <div class="detail-section">
+          <div class="detail-label">${svg('file', 13)} Document Passage with Highlighted Sensitive Data</div>
+          <div class="passage-card">
+            <div class="passage-header">
+              <span>Section: ${esc(f.section_label || 'Document Body')}</span>
+              <span>Sensitive Items: ${f.exposure_count || etypes.length || 0} detected</span>
+            </div>
+            <div class="passage-text">${highlightedPassage}</div>
+          </div>
+        </div>
+
+        <!-- 2. NUMBER KA FORMULATION -->
+        <div class="formulation-box">
+          <div class="formulation-top">
+            <div class="formulation-title">
+              <span style="color:var(--blue)">${svg('calculator', 14)}</span>
+              <span>Risk Score Formulation</span>
+            </div>
+            <div class="formulation-eq">Score = Clamp(Likelihood &#215; Impact &#215; Control Gap &#215; 100, 0, 100)</div>
+          </div>
+
+          <div class="score-meter">
+            <div class="score-meter-fill meter-${esc(f.severity)}" style="width:${f.score}%"></div>
+          </div>
+          <div class="score-meter-labels">
+            <span>Low (0-24)</span>
+            <span>Medium (25-49)</span>
+            <span>High (50-74)</span>
+            <span class="font-bold text-red">Critical (&ge;75)</span>
+          </div>
+
+          <div class="formulation-grid">
+            <div class="factor-cell">
+              <div class="factor-label">Calculated Score</div>
+              <div class="factor-val font-mono">${f.score} / 100</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Severity Level</div>
+              <div class="factor-val">${esc(f.severity)}</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Data Category</div>
+              <div class="factor-val">${esc((f.risk_category||'').replace(/_/g,' '))}</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Action Priority</div>
+              <div class="factor-val ${f.severity==='Critical'||f.severity==='High'?'text-red':'text-green'}">
+                ${f.severity==='Critical'||f.severity==='High' ? 'Priority 1 (Urgent)' : 'Standard Review'}
+              </div>
+            </div>
+            <div class="score-explanation">
+              This score combines the risk likelihood, the possible impact, how much of the control is missing,
+              and the vendor importance. It is capped at 100.
+              ${f.score_factors ? `Values used: likelihood ${Number(f.score_factors.likelihood || 0).toFixed(2)},
+              impact ${Number(f.score_factors.impact || 0).toFixed(2)},
+              control gap ${Number(f.score_factors.control_gap_factor || 0).toFixed(2)},
+              vendor importance ${Number(f.score_factors.vendor_criticality || 0).toFixed(2)}.` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. WHY THIS IS A RISK -->
+        ${whyReason ? `
+        <div class="detail-section mt-3">
+          <div class="detail-label">${svg('alert', 13)} Why this is a risk</div>
+          <div class="detail-why-box">${esc(whyReason)}</div>
+        </div>` : ''}
+
+        <!-- 4. RECOMMENDED ACTION -->
+        <div class="detail-section mt-3">
+          <div class="detail-label">${svg('arrow', 13)} Recommended Action</div>
+          <div class="detail-action-box">
+            ${svg('mail', 16)}
+            <div>${esc(actionText)}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+function toggleFinding(uid, page = null) {
+  document.getElementById(`fd-${uid}`)?.classList.toggle('open');
+  document.getElementById(`fc-${uid}`)?.classList.toggle('open');
+  if (page !== null) focusFindingInDocument(page);
+}
+
+// ===================================================================
+//  NEW ASSESSMENT SCREEN (File Upload)
+// ===================================================================
+function renderUpload(el) {
+  el.innerHTML = `
+    <div class="mb-4">
+      <div class="page-title">New Assessment</div>
+      <div class="page-sub">Upload vendor documentation for privacy-preserving sensitive data scan</div>
+    </div>
+    <div style="max-width:680px;margin:0 auto">
+      ${buildUploadCardHTML('upload-page')}
+    </div>
+  `;
+  wireDropZone('upload-page');
+}
+
+function buildUploadCardHTML(prefix) {
+  const STEPS = [
+    { key:'ingestion',   label:'Reading & parsing document pages' },
+    { key:'pii',         label:'Identifying sensitive data (PII & keys)' },
+    { key:'nlp',         label:'Context & sentence relationship analysis' },
+    { key:'policy',      label:'Sensitivity classification' },
+    { key:'sanitize',    label:'Masking & protecting personal data' },
+    { key:'gate',        label:'Safe-zone security verification' },
+    { key:'ai_analysis', label:'AI Risk assessment' },
+    { key:'risk_engine', label:'Normalizing & scoring findings' },
+  ];
 
   return `
-    <p class="text-sm text-muted mb-4">Current state: ${statusBadge(current)}</p>
-    <div class="workflow-track mb-4">${nodes}</div>
-    ${buttons ? `<div class="flex gap-2 mt-4">${buttons}</div>` : ''}
-    <div class="alert alert-navy mt-4">
-      <span class="alert-icon">ℹ</span>
-      <span>Frontend workflow controls are for review management only. Security enforcement — sanitization, gate checks, and signature verification — is performed by the backend pipeline and cannot be bypassed via the UI.</span>
-    </div>
-    <div class="alert alert-amber mt-2">
-      <span class="alert-icon">⚠</span>
-      <span>High and Critical findings require the approver to be different from the assessment creator (enforced by the backend).</span>
-    </div>
-  `;
-}
-
-async function transitionAssessment(id, to) {
-  try {
-    await api(`/assessments/${id}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: to, actor_id: 'reviewer', reason: `Transitioned to ${to} via UI` }),
-    });
-    toast(`Assessment moved to ${to}`, 'success');
-    await openAssessmentDetail(id);
-  } catch(e) {
-    toast(e.message, 'error');
-  }
-}
-
-function switchTab(tabEl, panelId) {
-  const parent = tabEl.closest('.card') || document.body;
-  parent.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-  parent.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  tabEl.classList.add('active');
-  document.getElementById(panelId)?.classList.add('active');
-}
-
-</script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 3 — UPLOAD / NEW ASSESSMENT
-// ═══════════════════════════════════════════════════════════════════
-function renderUpload(el) {
-  const STEPS = [
-    { key:'ingestion',   label:'Reading & parsing pages' },
-    { key:'pii',         label:'Detecting sensitive data (PII)' },
-    { key:'nlp',         label:'Understanding document context' },
-    { key:'policy',      label:'Classifying sensitivity levels' },
-    { key:'sanitize',    label:'Sanitizing & vaulting PII' },
-    { key:'gate',        label:'Security Gate verification' },
-    { key:'ai_analysis', label:'AI risk analysis (Ollama)' },
-    { key:'risk_engine', label:'Scoring and normalizing findings' },
-    { key:'onetrust',    label:'OneTrust outbox dispatch' },
-  ];
-  el.innerHTML = `
-    <div class="page-title mb-1">New Assessment</div>
-    <div class="page-sub mb-4">Upload a vendor-provided document. All PII is detected and sanitized before any AI analysis.</div>
-
-    <div style="display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start" id="upload-grid">
-      <!-- Upload panel -->
-      <div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">📄 Upload Document</div></div>
-          <div class="card-body">
-            <div class="drop-zone" id="dz">
-              <input type="file" id="upload-fi" accept=".pdf,.docx,.xlsx" aria-label="Upload vendor document">
-              <div class="drop-zone-icon">📁</div>
-              <div class="drop-zone-text">Drop file here or <span>click to browse</span></div>
-              <div class="drop-zone-hint">PDF, Word (.docx), or Excel (.xlsx) · Max 50 MB</div>
-              <div class="drop-zone-file" id="upload-fn"></div>
-            </div>
-            <div class="form-group mt-3">
-              <label class="form-label" for="upload-vid">Vendor name</label>
-              <input id="upload-vid" class="form-input" type="text" placeholder="e.g. Acme Cloud Services" aria-required="true">
-              <div class="form-hint">Identifies the vendor in the assessment record</div>
-            </div>
-            <div id="upload-err"></div>
-            <button class="btn btn-primary btn-full mt-3" id="upload-btn" disabled onclick="runUpload()" aria-label="Start assessment">
-              <span id="upload-btn-icon">🔍</span>
-              <span id="upload-btn-text">Start Assessment</span>
-            </button>
-          </div>
-          <div class="card-footer">
-            Raw PII never leaves the private zone. Only sanitized, gate-approved data reaches AI analysis.
-          </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">${svg('upload', 16)} Upload Document</div></div>
+      <div class="card-body">
+        <div class="drop-zone" id="${prefix}-dz">
+          <input type="file" id="${prefix}-fi" accept=".pdf,.docx,.xlsx">
+          <div class="drop-zone-icon">${svg('upload', 36)}</div>
+          <div class="drop-zone-text">Drop file here or <span>click to browse</span></div>
+          <div class="drop-zone-hint">PDF, Word (.docx), or Excel (.xlsx) &#183; Max 50 MB</div>
+          <div class="drop-zone-file" id="${prefix}-fn"></div>
         </div>
-
-        <!-- Pipeline steps -->
-        <div class="card mt-3" id="upload-progress" style="display:none">
-          <div class="card-header"><div class="card-title">Pipeline Progress</div></div>
-          <div class="card-body">
-            <div class="pipeline-steps" id="upload-steps">
-              ${STEPS.map(s => `
-                <div class="pipe-step" id="ps-${s.key}">
-                  <div class="ps-dot"></div>
-                  <div class="ps-label">${esc(s.label)}</div>
-                  <div class="ps-time" id="ps-t-${s.key}"></div>
-                </div>`).join('')}
-            </div>
-          </div>
+        <div class="form-group mt-3">
+          <label class="form-label" for="${prefix}-vid">Vendor name</label>
+          <input id="${prefix}-vid" class="form-input" type="text" placeholder="Vendor name (optional)">
+          <div class="form-hint">Company providing the document</div>
         </div>
+        <div id="${prefix}-err"></div>
+        <button class="btn btn-primary btn-full mt-3" id="${prefix}-btn" disabled onclick="runUpload('${prefix}')">
+          <span id="${prefix}-btn-icon">${svg('search', 14)}</span>
+          <span id="${prefix}-btn-text">Start Assessment</span>
+        </button>
       </div>
+      <div class="card-footer">
+        ${svg('shield-check', 13)} Raw personal data is detected and masked before any analysis occurs.
+      </div>
+    </div>
 
-      <!-- Results panel -->
-      <div id="upload-result">
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-icon">🛡</div>
-            <div class="empty-title">Ready to assess</div>
-            <div class="empty-desc">Upload a vendor document on the left. The pipeline will detect PII, sanitize it, run it through the Security Gate, and produce risk findings — all without raw data leaving the private zone.</div>
-          </div>
+    <!-- Progress Steps -->
+    <div class="card mt-3" id="${prefix}-progress" style="display:none">
+      <div class="card-header"><div class="card-title">Scanning Pipeline</div></div>
+      <div class="card-body">
+        <div class="pipeline-steps">
+          ${STEPS.map(s => `
+            <div class="pipe-step" id="${prefix}-ps-${s.key}">
+              <div class="ps-dot">${svg('check', 11)}</div>
+              <div class="ps-label">${esc(s.label)}</div>
+              <div class="ps-time" id="${prefix}-ps-t-${s.key}"></div>
+            </div>`).join('')}
         </div>
       </div>
     </div>
   `;
+}
 
-  // Wire drop zone
-  const fi = document.getElementById('upload-fi');
-  const dz = document.getElementById('dz');
+function wireDropZone(prefix) {
+  const fi = document.getElementById(`${prefix}-fi`);
+  const dz = document.getElementById(`${prefix}-dz`);
+  if (!fi || !dz) return;
   fi.addEventListener('change', () => fi.files[0] && pickFile(fi.files[0]));
   ['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
   ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
@@ -1713,39 +1694,37 @@ function renderUpload(el) {
   }));
 
   function pickFile(f) {
-    document.getElementById('upload-fn').textContent = '✓ ' + f.name;
-    document.getElementById('upload-btn').disabled = false;
+    document.getElementById(`${prefix}-fn`).textContent = 'Selected: ' + f.name;
+    document.getElementById(`${prefix}-btn`).disabled = false;
   }
 }
 
-async function runUpload() {
-  const fi = document.getElementById('upload-fi');
-  const vid = document.getElementById('upload-vid').value.trim() || 'Unknown Vendor';
+async function runUpload(prefix) {
+  const fi = document.getElementById(`${prefix}-fi`);
+  const vid = document.getElementById(`${prefix}-vid`).value.trim();
   const file = fi.files[0];
   if (!file) return;
 
-  const STEP_KEYS = ['ingestion','pii','nlp','policy','sanitize','gate','ai_analysis','risk_engine','onetrust'];
+  const STEP_KEYS = ['ingestion','pii','nlp','policy','sanitize','gate','ai_analysis','risk_engine'];
   let stepIdx = 0;
   let ticker;
 
-  // Reset all steps
   STEP_KEYS.forEach(k => {
-    document.getElementById(`ps-${k}`)?.classList.remove('ps-done','ps-active');
-    const t = document.getElementById(`ps-t-${k}`); if (t) t.textContent = '';
+    document.getElementById(`${prefix}-ps-${k}`)?.classList.remove('ps-done','ps-active');
+    const t = document.getElementById(`${prefix}-ps-t-${k}`); if (t) t.textContent = '';
   });
 
-  document.getElementById('upload-progress').style.display = '';
-  document.getElementById('upload-btn').disabled = true;
-  document.getElementById('upload-btn-icon').innerHTML = '<span class="spin"></span>';
-  document.getElementById('upload-btn-text').textContent = 'Processing…';
-  document.getElementById('upload-err').innerHTML = '';
+  document.getElementById(`${prefix}-progress`).style.display = '';
+  document.getElementById(`${prefix}-btn`).disabled = true;
+  document.getElementById(`${prefix}-btn-icon`).innerHTML = '<span class="spin"></span>';
+  document.getElementById(`${prefix}-btn-text`).textContent = 'Scanning...';
+  document.getElementById(`${prefix}-err`).innerHTML = '';
 
-  function advance() {
-    if (stepIdx > 0) document.getElementById(`ps-${STEP_KEYS[stepIdx-1]}`)?.classList.replace('ps-active','ps-done');
-    if (stepIdx < STEP_KEYS.length) document.getElementById(`ps-${STEP_KEYS[stepIdx]}`)?.classList.add('ps-active');
+  ticker = setInterval(() => {
+    if (stepIdx > 0) document.getElementById(`${prefix}-ps-${STEP_KEYS[stepIdx-1]}`)?.classList.replace('ps-active','ps-done');
+    if (stepIdx < STEP_KEYS.length) document.getElementById(`${prefix}-ps-${STEP_KEYS[stepIdx]}`)?.classList.add('ps-active');
     stepIdx++;
-  }
-  ticker = setInterval(advance, 1500);
+  }, 1400);
 
   const fd = new FormData();
   fd.append('file', file);
@@ -1756,7 +1735,10 @@ async function runUpload() {
     clearInterval(ticker);
     if (!r.ok) {
       const err = await r.json().catch(() => ({ error: r.statusText }));
-      throw new Error(err.detail || err.error || 'Assessment failed');
+      const detail = Array.isArray(err.detail)
+        ? err.detail.map(item => `${item.loc?.join('.') || 'request'}: ${item.msg}`).join('; ')
+        : err.detail || err.error;
+      throw new Error(detail || r.statusText || 'Scan failed');
     }
     const sum = await r.json();
     const [detail, findings] = await Promise.all([
@@ -1764,880 +1746,28 @@ async function runUpload() {
       api(`/assessments/${sum.assessment_id}/findings`),
     ]);
 
-    // Mark all steps done with timings
-    const timings = detail.stage_timings || {};
-    STEP_KEYS.forEach(k => {
-      const el = document.getElementById(`ps-${k}`);
-      el?.classList.remove('ps-active'); el?.classList.add('ps-done');
-      const ms = timings[k] ? Math.round(timings[k] * 1000) : null;
-      const t = document.getElementById(`ps-t-${k}`); if (t && ms) t.textContent = ms + 'ms';
-    });
+    toast(`Assessment complete: ${findings.length} findings formulated`, 'success');
 
-    toast(`Assessment complete — ${findings.length} finding${findings.length !== 1 ? 's' : ''} generated`, 'success');
-    renderUploadResults(sum, detail, findings);
+    // NAVIGATE DIRECTLY TO THIS FILE'S DEDICATED CONTENT PAGE (No reload!)
+    renderFilePage(detail, findings);
   } catch(e) {
     clearInterval(ticker);
     toast(e.message, 'error');
-    document.getElementById('upload-err').innerHTML = `
-      <div class="alert alert-red mt-2">
-        <span class="alert-icon">✗</span>
-        <span>${esc(e.message)}</span>
+    document.getElementById(`${prefix}-err`).innerHTML = `
+      <div style="background:var(--red-bg);color:#991b1b;border:1px solid var(--red-border);padding:10px 14px;border-radius:var(--radius);font-size:12px;margin-top:8px">
+        ${svg('alert-circle', 14)} ${esc(e.message)}
       </div>`;
-  } finally {
-    document.getElementById('upload-btn').disabled = false;
-    document.getElementById('upload-btn-icon').textContent = '🔍';
-    document.getElementById('upload-btn-text').textContent = 'Start Assessment';
+    document.getElementById(`${prefix}-btn`).disabled = false;
+    document.getElementById(`${prefix}-btn-icon`).innerHTML = svg('search', 14);
+    document.getElementById(`${prefix}-btn-text`).textContent = 'Start Assessment';
   }
 }
 
-function renderUploadResults(sum, detail, findings) {
-  const gr = detail.gate_report || {};
-  const critN = findings.filter(f => f.severity === 'Critical').length;
-  const highN  = findings.filter(f => f.severity === 'High').length;
-  const medN   = findings.filter(f => f.severity === 'Medium').length;
-  const lowN   = findings.filter(f => f.severity === 'Low').length;
-  const top    = findings[0]?.score ?? 0;
-
-  const cards = findings.sort((a,b) => b.score - a.score).map((f,i) => buildFindingCard(f, `up-${i}`)).join('') ||
-    `<div class="empty-state" style="min-height:100px"><div class="empty-icon" style="font-size:28px">✅</div><div class="empty-title">No issues found</div></div>`;
-
-  document.getElementById('upload-result').innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <div class="flex-1">
-          <div class="card-title">📄 ${esc(detail.filename)}</div>
-          <div class="card-sub">Vendor: <strong>${esc(detail.vendor_id)}</strong></div>
-        </div>
-        <div class="flex gap-2">
-          ${sensitivityBadge(detail.sensitivity)}
-          <span class="badge ${gr.passed ? 'badge-emerald':'badge-red'}">${gr.passed ? '⬡ Gate Passed':'⬡ Quarantined'}</span>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)">
-        <div class="stat-card" style="padding:12px 14px">
-          <div class="stat-label">Sensitivity</div>
-          <div class="stat-value" style="font-size:16px">${esc(detail.sensitivity)}</div>
-        </div>
-        <div class="stat-card ${critN+highN > 0 ? 'accent-red':''}" style="padding:12px 14px">
-          <div class="stat-label">Critical/High</div>
-          <div class="stat-value" style="font-size:16px">${critN+highN}</div>
-        </div>
-        <div class="stat-card ${medN > 0 ? 'accent-amber':''}" style="padding:12px 14px">
-          <div class="stat-label">Medium</div>
-          <div class="stat-value" style="font-size:16px">${medN}</div>
-        </div>
-        <div class="stat-card" style="padding:12px 14px">
-          <div class="stat-label">Low</div>
-          <div class="stat-value" style="font-size:16px">${lowN}</div>
-        </div>
-        <div class="stat-card ${top > 50 ? 'accent-red' : top > 25 ? 'accent-amber':''}" style="padding:12px 14px">
-          <div class="stat-label">Top Score</div>
-          <div class="stat-value" style="font-size:16px">${top}<span style="font-size:10px;font-weight:400"> /100</span></div>
-        </div>
-      </div>
-      <div class="tabs-bar" style="padding:0 20px">
-        <div class="tab-item active" onclick="switchTab(this,'ur-findings')">Findings (${findings.length})</div>
-        <div class="tab-item" onclick="switchTab(this,'ur-privacy')">Privacy Report</div>
-        <div class="tab-item" onclick="switchTab(this,'ur-timing')">Timings</div>
-      </div>
-      <div style="padding:16px 20px">
-        <div class="tab-panel active" id="ur-findings">${cards}</div>
-        <div class="tab-panel" id="ur-privacy">
-          ${buildPrivacyReport(gr)}
-        </div>
-        <div class="tab-panel" id="ur-timing">
-          ${buildTimingBars(detail.stage_timings || {})}
-        </div>
-      </div>
-      <div class="card-footer">
-        <button class="btn btn-secondary btn-sm" onclick="goto('assessments')">View all assessments →</button>
-      </div>
-    </div>
-  `;
-}
-
-function buildPrivacyReport(gr) {
-  return `
-    <div class="alert alert-green mb-4">
-      <span class="alert-icon">✅</span>
-      <span>This report contains <strong>no raw personal data</strong>. All PII detected in the original document was sanitized (redacted, tokenized, or generalized) before analysis. The values stored in the encrypted vault are never exposed in this view.</span>
-    </div>
-    <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-      <div class="stat-card accent-emerald" style="padding:12px 14px">
-        <div class="stat-label">Gate Outcome</div>
-        <div class="stat-value" style="font-size:15px">${gr.passed ? '✓ Passed' : '✗ Blocked'}</div>
-      </div>
-      <div class="stat-card" style="padding:12px 14px">
-        <div class="stat-label">Blocks Processed</div>
-        <div class="stat-value" style="font-size:15px">${gr.total_blocks || 0}</div>
-      </div>
-      <div class="stat-card accent-emerald" style="padding:12px 14px">
-        <div class="stat-label">PII Leaked to AI</div>
-        <div class="stat-value" style="font-size:15px">None</div>
-      </div>
-      <div class="stat-card accent-emerald" style="padding:12px 14px">
-        <div class="stat-label">Raw PII in Report</div>
-        <div class="stat-value" style="font-size:15px">None</div>
-      </div>
-    </div>
-    <div class="gate-boundary">
-      <div class="gate-boundary-title">How your data was protected</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.7">
-        Every piece of sensitive information was detected and masked before AI analysis. Names, emails, phone numbers, API keys, and other personal or sensitive data were replaced with tokens (e.g. <code style="background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">&lt;&lt;EMAIL_a3f7b2c1&gt;&gt;</code>) or redacted as <code style="background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">[REDACTED:EMAIL_ADDRESS]</code>.<br><br>
-        The Security Gate independently verified — using a separate Presidio instance — that no PII remained in the sanitized output before signing the payload. Only the signed, gate-approved document was seen by the AI risk analysis stage.
-      </div>
-    </div>
-  `;
-}
-
-function buildTimingBars(timings) {
-  const entries = Object.entries(timings);
-  if (!entries.length) return `<div class="empty-state" style="min-height:80px"><div class="empty-desc">No timing data available.</div></div>`;
-  const maxMs = Math.max(...entries.map(([,v]) => v * 1000), 1);
-  return `<p class="text-sm text-muted mb-3">Wall-clock time per pipeline stage</p>
-    ${entries.map(([k,v]) => {
-      const ms = Math.round(v * 1000), pct = Math.max(2, Math.round(ms / maxMs * 100));
-      return `<div class="timing-row">
-        <div class="timing-label">${esc(k.replace(/_/g,' '))}</div>
-        <div class="timing-track"><div class="timing-fill" style="width:${pct}%"></div></div>
-        <div class="timing-ms">${ms}ms</div>
-      </div>`;
-    }).join('')}`;
-}
-
-</script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  FINDING CARD BUILDER (shared)
-// ═══════════════════════════════════════════════════════════════════
-function buildFindingCard(f, uid) {
-  const etypes = (f.entity_types_found || []);
-  const PRIO = ['API_KEY','PEM_PRIVATE_KEY','CREDENTIAL_URL','US_SSN','CREDIT_CARD','IBAN_CODE','BANK_ACCOUNT','EMAIL_ADDRESS','PHONE_NUMBER','PERSON','IP_ADDRESS','INTERNAL_HOSTNAME','EMPLOYEE_ID','DATE_OF_BIRTH','CONTRACT_NUMBER','MAC_ADDRESS'];
-  const sorted = [...etypes].sort((a,b) => { const ai=PRIO.indexOf(a),bi=PRIO.indexOf(b); return (ai<0?99:ai)-(bi<0?99:bi); });
-
-  const chips = sorted.slice(0,3).map(entityChip).join('');
-  const more  = sorted.length > 3 ? `<span class="text-xs text-muted">+${sorted.length-3} more</span>` : '';
-  const loc   = f.section_label ? `<div class="finding-location">📍 ${esc(f.section_label)}</div>` : '';
-
-  const desc = f.description || '';
-  const sentRx = /[^.!?]+[.!?]+/g;
-  const sents = (desc.match(sentRx) || [desc]).map(s => s.trim()).filter(Boolean);
-  const s1 = sents[0] || '';
-  const why = sents.length > 2 ? sents.slice(1,-1).join(' ').trim() : sents.slice(1).join(' ').trim();
-  const last = sents[sents.length - 1] || '';
-  const isAction = /^(Ask|Escalate|Notify|Report|Rotate)/i.test(last);
-  const action = isAction ? last : (f.recommendation || '');
-  const whyFull = why || (!isAction ? last : '');
-  const preview = (whyFull || s1).slice(0,120) + ((whyFull || s1).length > 120 ? '…' : '');
-
-  const ctls = (f.controls || []).slice(0,4);
-  const statusHtml = f.status && f.status !== 'Draft'
-    ? `<span class="badge badge-blue" style="margin-bottom:4px">${esc(f.status)}</span>`
-    : '';
-
-  return `
-    <div class="finding-card sev-${esc(f.severity)}">
-      <div class="finding-card-top" onclick="toggleFinding('${uid}')" aria-expanded="false" aria-controls="fd-${uid}">
-        <div class="finding-stripe" aria-hidden="true"></div>
-        <div class="finding-body">
-          ${loc}
-          ${chips || more ? `<div class="finding-chips">${chips}${more}</div>` : ''}
-          <div class="finding-title">${esc(f.title)}</div>
-          <div class="finding-desc">${esc(preview)}</div>
-        </div>
-        <div class="finding-right">
-          <div class="score-ring sr-${esc(f.severity)}" aria-label="Risk score ${f.score}">
-            ${f.score}<div style="font-size:8px;font-weight:400;color:var(--text-muted)">/100</div>
-          </div>
-          ${sevBadge(f.severity)}
-          ${statusHtml}
-          <div class="finding-chevron" id="fc-${uid}" aria-hidden="true">▼</div>
-        </div>
-      </div>
-      <div class="finding-detail" id="fd-${uid}" role="region">
-        ${s1 ? `<div class="detail-section">
-          <div class="detail-label">What was found</div>
-          <div class="detail-found-box">
-            ${chips ? `<div class="finding-chips" style="margin-bottom:6px">${sorted.slice(0,4).map(entityChip).join('')}</div>` : ''}
-            ${esc(s1)}
-          </div>
-        </div>` : ''}
-        ${whyFull ? `<div class="detail-section">
-          <div class="detail-label">Why this matters</div>
-          <div class="detail-why-box">${esc(whyFull)}</div>
-        </div>` : ''}
-        ${action ? `<div class="detail-section">
-          <div class="detail-label">Recommended action</div>
-          <div class="detail-action-box"><span>✉</span><span>${esc(action)}</span></div>
-        </div>` : ''}
-        ${ctls.length ? `<div class="detail-section">
-          <div class="detail-label">Applicable controls</div>
-          <div class="control-chips">${ctls.map(c => `<span class="control-chip">${esc(c.framework)} — ${esc(c.name || c.ref)}</span>`).join('')}</div>
-        </div>` : ''}
-        <div class="detail-section">
-          <div class="detail-label">Risk category</div>
-          <span class="badge badge-purple">${esc(f.risk_category)}</span>
-          <span class="badge badge-navy" style="margin-left:4px">Score ${f.score}/100</span>
-        </div>
-      </div>
-    </div>`;
-}
-
-function toggleFinding(uid) {
-  const det = document.getElementById(`fd-${uid}`);
-  const chev = document.getElementById(`fc-${uid}`);
-  det?.classList.toggle('open');
-  chev?.classList.toggle('open');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 4 — SECURITY GATE
-// ═══════════════════════════════════════════════════════════════════
-async function renderGate(el) {
-  const decisions = await api('/gate/decisions').catch(() => []);
-  state.gateDecisions = decisions;
-
-  const approved   = decisions.filter(d => d.outcome === 'approved').length;
-  const quarantined = decisions.filter(d => d.outcome === 'quarantined').length;
-  const totalBlocks = decisions.reduce((s,d) => s + (d.total_blocks||0), 0);
-  const rescanHits  = decisions.reduce((s,d) => s + (d.rescan_hits||0), 0);
-
-  const rows = decisions.map(d => `
-    <tr>
-      <td>
-        <div class="font-bold truncate" style="max-width:160px">${esc(d.vendor_id || '—')}</div>
-        <div class="td-muted truncate" style="max-width:160px">${esc(d.filename || '—')}</div>
-      </td>
-      <td>
-        <span class="badge ${d.outcome === 'approved' ? 'badge-emerald':'badge-red'}">
-          ${d.outcome === 'approved' ? '⬡ Approved' : '⛔ Quarantined'}
-        </span>
-      </td>
-      <td class="td-muted">${d.total_blocks || 0}</td>
-      <td class="td-muted">${d.sensitive_path_blocks || 0}</td>
-      <td>
-        ${d.rescan_hits > 0 ? `<span class="badge badge-red">${d.rescan_hits} hit${d.rescan_hits>1?'s':''}</span>` : '<span class="badge badge-green">Clean</span>'}
-      </td>
-      <td class="td-muted">${fmtDateTime(d.ts)}</td>
-      <td>
-        <button class="btn btn-ghost btn-sm" onclick="showGateDetail(${esc(JSON.stringify(d).replace(/"/g,'&quot;'))})">Details</button>
-      </td>
-    </tr>`).join('') || `<tr><td colspan="7"><div class="empty-state" style="min-height:100px"><div class="empty-icon" style="font-size:28px">⬡</div><div class="empty-desc">No gate decisions yet. Submit an assessment to see results here.</div></div></td></tr>`;
-
-  el.innerHTML = `
-    <div class="page-title mb-1">Security Gate</div>
-    <div class="page-sub mb-4">The only crossing point between the private/trusted zone and the AI analysis zone</div>
-
-    <!-- Architecture overview -->
-    <div class="gate-boundary mb-6">
-      <div class="gate-boundary-title">⬡ Trust Boundary Architecture</div>
-      <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0;align-items:stretch">
-        <div class="gate-zone gate-zone-private">
-          <div class="gate-zone-label zone-private-label">🔒 Private / Trusted Zone</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);line-height:1.6">
-            • Document Ingestion<br>
-            • PII Detection (Presidio)<br>
-            • Local NLP (spaCy + embeddings)<br>
-            • Policy Engine<br>
-            • Sensitivity Scoring<br>
-            • Sanitization + Vault
-          </div>
-          <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.4)">Docker internal-only network · No egress</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:center;color:#fbbf24;font-size:22px">→</div>
-        <div class="gate-zone gate-zone-gate">
-          <div class="gate-zone-label zone-gate-label">⬡ Security Gate — sole crossing point</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);line-height:1.8">
-            1. PII Re-scan (independent Presidio)<br>
-            2. Vault lookup — no raw value verbatim<br>
-            3. Token grammar validation<br>
-            4. Entropy check (>4.5 bits/char)<br>
-            5. HMAC-SHA256 signing
-          </div>
-          <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.4)">Fail-closed · Any failure → quarantine</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:center;color:#93c5fd;font-size:22px">→</div>
-        <div class="gate-zone gate-zone-ai">
-          <div class="gate-zone-label zone-ai-label">🤖 AI / Public Zone</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);line-height:1.6">
-            • AI Risk Analysis (Ollama)<br>
-            • Risk Engine<br>
-            • Workflow State Machine<br>
-            • OneTrust Outbox
-          </div>
-          <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.4)">Never sees raw PII · Only GateApprovedPayload</div>
-        </div>
-      </div>
-      <div class="hmac-note" style="background:rgba(217,119,6,.15);border-color:rgba(217,119,6,.4);color:#fbbf24;margin-top:12px">
-        ⚠ HMAC signature validity confirms integrity and authenticity under the configured signing key. It does not independently verify absence of PII — that is enforced by re-scan, vault lookup, and entropy checks.
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stat-grid mb-6">
-      <div class="stat-card accent-emerald">
-        <div class="stat-label">Payloads Approved</div>
-        <div class="stat-value">${approved}</div>
-        <div class="stat-hint">✓ Cleared all gate checks</div>
-      </div>
-      <div class="stat-card ${quarantined > 0 ? 'accent-red':''}">
-        <div class="stat-label">Quarantined</div>
-        <div class="stat-value">${quarantined}</div>
-        <div class="stat-hint">${quarantined > 0 ? '🚫 Blocked before AI zone' : '✓ No violations'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Blocks Processed</div>
-        <div class="stat-value">${totalBlocks}</div>
-        <div class="stat-hint">Across all assessments</div>
-      </div>
-      <div class="stat-card ${rescanHits > 0 ? 'accent-amber':'accent-green'}">
-        <div class="stat-label">Re-scan Hits</div>
-        <div class="stat-value">${rescanHits}</div>
-        <div class="stat-hint">${rescanHits > 0 ? 'PII found in re-scan → re-sanitized' : '✓ No residual PII detected'}</div>
-      </div>
-    </div>
-
-    <!-- Gate decisions table -->
-    <div class="card">
-      <div class="card-header">
-        <div class="flex-1">
-          <div class="card-title">Gate Decisions</div>
-          <div class="card-sub">Chronological record of all Security Gate outcomes</div>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Vendor / File</th><th>Outcome</th><th>Blocks</th><th>Sensitive</th><th>Re-scan</th><th>Time</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="gate-detail-panel" class="mt-4"></div>
-  `;
-}
-
-function showGateDetail(d) {
-  const panel = document.getElementById('gate-detail-panel');
-  panel.innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <div class="flex-1">
-          <div class="card-title">⬡ Gate Decision Detail</div>
-          <div class="card-sub">${esc(d.vendor_id || '—')} · ${esc(d.filename || '—')}</div>
-        </div>
-        <span class="badge ${d.outcome === 'approved' ? 'badge-emerald badge-lg':'badge-red badge-lg'}">${d.outcome === 'approved' ? '⬡ Gate Approved':'⛔ Quarantined'}</span>
-      </div>
-      <div class="card-body">
-        <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
-          <div class="stat-card" style="padding:12px"><div class="stat-label">Total Blocks</div><div class="stat-value" style="font-size:18px">${d.total_blocks||0}</div></div>
-          <div class="stat-card" style="padding:12px"><div class="stat-label">Safe Path</div><div class="stat-value" style="font-size:18px">${d.safe_path_blocks||0}</div></div>
-          <div class="stat-card" style="padding:12px"><div class="stat-label">Sensitive Path</div><div class="stat-value" style="font-size:18px">${d.sensitive_path_blocks||0}</div></div>
-          <div class="stat-card ${d.rescan_hits > 0 ? 'accent-red':''}" style="padding:12px"><div class="stat-label">Re-scan Hits</div><div class="stat-value" style="font-size:18px">${d.rescan_hits||0}</div></div>
-          <div class="stat-card" style="padding:12px"><div class="stat-label">Re-routed</div><div class="stat-value" style="font-size:18px">${d.rerouted_blocks||0}</div></div>
-        </div>
-        ${buildGateChecks({ passed: d.outcome==='approved', rescan_hits: d.rescan_hits })}
-        <div class="alert alert-blue mt-3">
-          <span class="alert-icon">ℹ</span>
-          <span>Assessment ID: <span class="font-mono">${esc(d.assessment_id || '—')}</span> · Document ID: <span class="font-mono">${esc(d.doc_id || '—')}</span></span>
-        </div>
-      </div>
-    </div>`;
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-</script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 5 — RISK FINDINGS
-// ═══════════════════════════════════════════════════════════════════
-async function renderFindings(el) {
-  const findings = await api('/findings').catch(() => []);
-  state.findings = findings;
-
-  if (findings.length === 0) {
-    el.innerHTML = `
-      <div class="page-title mb-1">Risk Findings</div>
-      <div class="page-sub mb-4">Normalised risk findings across all vendor assessments</div>
-      <div class="card"><div class="empty-state">
-        <div class="empty-icon">⚑</div>
-        <div class="empty-title">No findings yet</div>
-        <div class="empty-desc">Submit a vendor document for assessment to generate risk findings.</div>
-        <button class="btn btn-primary mt-3" onclick="goto('upload')">Upload a document</button>
-      </div></div>`;
-    return;
-  }
-
-  const critN = findings.filter(f => f.severity === 'Critical').length;
-  const highN  = findings.filter(f => f.severity === 'High').length;
-  const medN   = findings.filter(f => f.severity === 'Medium').length;
-  const lowN   = findings.filter(f => f.severity === 'Low').length;
-
-  const cats = [...new Set(findings.map(f => f.risk_category))].sort();
-  const vendors = [...new Set(findings.map(f => f.vendor_id))].sort();
-
-  el.innerHTML = `
-    <div class="page-title mb-1">Risk Findings</div>
-    <div class="page-sub mb-4">${findings.length} finding${findings.length!==1?'s':''} across ${vendors.length} vendor${vendors.length!==1?'s':''}</div>
-
-    <div class="stat-grid mb-4">
-      <div class="stat-card accent-red">
-        <div class="stat-label">Critical</div>
-        <div class="stat-value">${critN}</div>
-      </div>
-      <div class="stat-card ${highN > 0 ? 'accent-red':''}">
-        <div class="stat-label">High</div>
-        <div class="stat-value">${highN}</div>
-      </div>
-      <div class="stat-card ${medN > 0 ? 'accent-amber':''}">
-        <div class="stat-label">Medium</div>
-        <div class="stat-value">${medN}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Low</div>
-        <div class="stat-value">${lowN}</div>
-      </div>
-    </div>
-
-    <div class="card mb-4">
-      <div class="card-header" style="gap:10px">
-        <div class="search-bar flex-1">
-          <span>🔍</span>
-          <input id="find-search" type="search" placeholder="Search findings…" oninput="filterFindings()" aria-label="Search findings">
-        </div>
-        <select class="form-input" style="width:140px" id="find-sev" onchange="filterFindings()" aria-label="Filter by severity">
-          <option value="">All severities</option>
-          <option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
-        </select>
-        <select class="form-input" style="width:160px" id="find-cat" onchange="filterFindings()" aria-label="Filter by category">
-          <option value="">All categories</option>
-          ${cats.map(c => `<option>${esc(c)}</option>`).join('')}
-        </select>
-        <select class="form-input" style="width:160px" id="find-vendor" onchange="filterFindings()" aria-label="Filter by vendor">
-          <option value="">All vendors</option>
-          ${vendors.map(v => `<option>${esc(v)}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-
-    <div id="findings-list">
-      ${findings.map((f,i) => buildFindingCard(f, `gl-${i}`)).join('')}
-    </div>
-  `;
-}
-
-function filterFindings() {
-  const q   = document.getElementById('find-search')?.value.toLowerCase() || '';
-  const sev = document.getElementById('find-sev')?.value || '';
-  const cat = document.getElementById('find-cat')?.value || '';
-  const ven = document.getElementById('find-vendor')?.value || '';
-  // Re-render with filtered findings
-  const filtered = state.findings.filter(f => {
-    const text = `${f.title} ${f.description} ${f.risk_category} ${f.vendor_id} ${f.severity}`.toLowerCase();
-    return (!q || text.includes(q))
-        && (!sev || f.severity === sev)
-        && (!cat || f.risk_category === cat)
-        && (!ven || f.vendor_id === ven);
-  });
-  const list = document.getElementById('findings-list');
-  if (!list) return;
-  list.innerHTML = filtered.length
-    ? filtered.map((f,i) => buildFindingCard(f, `filt-${i}`)).join('')
-    : `<div class="empty-state" style="min-height:120px"><div class="empty-icon" style="font-size:28px">🔍</div><div class="empty-title">No matching findings</div></div>`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 6 — WORKFLOW & APPROVALS
-// ═══════════════════════════════════════════════════════════════════
-async function renderWorkflow(el) {
-  const assessments = await api('/assessments').catch(() => []);
-
-  if (assessments.length === 0) {
-    el.innerHTML = `
-      <div class="page-title mb-1">Workflow & Approvals</div>
-      <div class="page-sub mb-4">Assessment review and approval workflow</div>
-      <div class="card"><div class="empty-state">
-        <div class="empty-icon">⇄</div>
-        <div class="empty-title">No assessments in workflow</div>
-        <div class="empty-desc">Submit a vendor document to begin the review workflow.</div>
-        <button class="btn btn-primary mt-3" onclick="goto('upload')">Upload a document</button>
-      </div></div>`;
-    return;
-  }
-
-  const WF_STATES = ['Draft','InReview','RemediationRequested','RemediationInProgress','Verified','Accepted','Rejected','Escalated'];
-  const byStatus = {};
-  WF_STATES.forEach(s => { byStatus[s] = []; });
-  assessments.forEach(a => { (byStatus[a.workflow_status] = byStatus[a.workflow_status] || []).push(a); });
-
-  const kanbanCols = [
-    { key:'Draft',              label:'Draft',        color:'var(--text-muted)' },
-    { key:'InReview',           label:'In Review',    color:'var(--blue)' },
-    { key:'RemediationRequested',label:'Remediation', color:'var(--amber)' },
-    { key:'Verified',           label:'Verified',     color:'var(--emerald-dark)' },
-    { key:'Accepted',           label:'Accepted',     color:'var(--green)' },
-    { key:'Escalated',          label:'Escalated',    color:'var(--red)' },
-  ];
-
-  const kanban = kanbanCols.map(col => {
-    const items = (byStatus[col.key] || []);
-    const cards = items.map(a => `
-      <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openAssessmentWF('${esc(a.assessment_id)}')">
-        <div class="font-bold truncate" style="font-size:13px">${esc(a.vendor_id)}</div>
-        <div class="td-muted truncate text-xs">${esc(a.filename)}</div>
-        <div class="flex gap-2 mt-2">
-          ${sensitivityBadge(a.sensitivity)}
-          ${a.high_critical > 0 ? `<span class="badge badge-red">${a.high_critical} H/C</span>` : ''}
-        </div>
-      </div>`).join('') || `<div class="text-xs text-muted" style="padding:8px">None</div>`;
-    return `
-      <div style="flex:1;min-width:160px;max-width:240px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:${col.color};margin-bottom:8px;padding:0 4px">
-          ${esc(col.label)} <span style="font-weight:400;color:var(--text-muted)">(${items.length})</span>
-        </div>
-        ${cards}
-      </div>`;
-  }).join('');
-
-  el.innerHTML = `
-    <div class="page-title mb-1">Workflow & Approvals</div>
-    <div class="page-sub mb-4">Assessment review, remediation tracking, and approval workflow</div>
-
-    <div class="alert alert-navy mb-4">
-      <span class="alert-icon">🔒</span>
-      <span>Security enforcement is performed by the backend pipeline and Security Gate. Frontend workflow controls manage review status only. High and Critical findings require the approver to differ from the assessment creator — this is enforced server-side.</span>
-    </div>
-
-    <!-- State machine diagram -->
-    <div class="card mb-6">
-      <div class="card-header">
-        <div class="card-title">Assessment State Machine</div>
-        <div class="card-sub">Valid transitions are enforced by the backend WorkflowStateMachine</div>
-      </div>
-      <div class="card-body">
-        <div class="workflow-track">
-          ${['Draft','InReview','RemediationRequested','RemediationInProgress','Verified','Accepted'].map((s,i,arr) => `
-            <div class="wf-node">
-              <div class="wf-circle">${i+1}</div>
-              <div class="wf-label">${esc(s)}</div>
-            </div>${i<arr.length-1?'<div class="wf-arrow">→</div>':''}`).join('')}
-          <div class="wf-arrow" style="margin-bottom:18px">↗</div>
-          <div class="wf-node">
-            <div class="wf-circle wf-alert">!</div>
-            <div class="wf-label">Escalated</div>
-          </div>
-        </div>
-        <div class="flex gap-2 mt-3 flex-wrap">
-          <span class="badge badge-gray">Any → Escalated possible from InReview, RemediationRequested, Verified</span>
-          <span class="badge badge-green">Escalated → Accepted or Rejected</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Kanban view -->
-    <div class="card mb-6">
-      <div class="card-header">
-        <div class="card-title">Assessment Board</div>
-        <div class="card-sub">Click an assessment to review and transition it</div>
-      </div>
-      <div class="card-body">
-        <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:4px">${kanban}</div>
-      </div>
-    </div>
-
-    <!-- All assessments table -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">All Assessments</div></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Vendor</th><th>Status</th><th>Severity</th><th>Findings</th><th>Gate</th><th>Actions</th></tr></thead>
-          <tbody>
-            ${assessments.map(a => `
-              <tr>
-                <td>
-                  <div class="font-bold">${esc(a.vendor_id)}</div>
-                  <div class="td-muted text-xs">${esc(a.filename)}</div>
-                </td>
-                <td>${statusBadge(a.workflow_status)}</td>
-                <td>${sensitivityBadge(a.sensitivity)}</td>
-                <td>${a.high_critical > 0 ? `<span class="badge badge-red">${a.high_critical} H/C</span>` : ''} <span class="td-muted">${a.finding_count} total</span></td>
-                <td><span class="badge ${a.gate_passed ? 'badge-emerald':'badge-red'}">${a.gate_passed ? '✓':'✗'}</span></td>
-                <td id="wf-actions-${esc(a.assessment_id)}">
-                  ${buildWFButtons(a)}
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function buildWFButtons(a) {
-  const map = {
-    Draft: [['InReview','Submit','btn-primary btn-sm']],
-    InReview: [['Verified','Verify','btn-primary btn-sm'],['RemediationRequested','Request Remediation','btn-secondary btn-sm'],['Escalated','Escalate','btn-danger btn-sm']],
-    RemediationRequested: [['RemediationInProgress','Start','btn-secondary btn-sm']],
-    RemediationInProgress: [['Verified','Verify','btn-primary btn-sm']],
-    Verified: [['Accepted','Accept','btn-primary btn-sm'],['Rejected','Reject','btn-danger btn-sm']],
-    Escalated: [['Accepted','Accept','btn-primary btn-sm'],['Rejected','Reject','btn-danger btn-sm']],
-  };
-  return (map[a.workflow_status] || []).map(([to, label, cls]) =>
-    `<button class="btn ${cls}" onclick="quickTransition('${esc(a.assessment_id)}','${esc(to)}',this)">${esc(label)}</button>`
-  ).join(' ');
-}
-
-async function quickTransition(id, to, btn) {
-  btn.disabled = true;
-  try {
-    await api(`/assessments/${id}/transition`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ to_status:to, actor_id:'reviewer', reason:`Transitioned to ${to}` }),
-    });
-    toast(`Moved to ${to}`, 'success');
-    await renderWorkflow(document.getElementById('page-content'));
-  } catch(e) {
-    toast(e.message, 'error');
-    btn.disabled = false;
-  }
-}
-
-async function openAssessmentWF(id) {
-  goto('assessments');
-  await new Promise(r => setTimeout(r, 200));
-  await openAssessmentDetail(id);
-}
-
-</script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 7 — AUDIT TRAIL
-// ═══════════════════════════════════════════════════════════════════
-async function renderAudit(el) {
-  const events = await api('/audit').catch(() => []);
-  state.auditEvents = events;
-
-  if (events.length === 0) {
-    el.innerHTML = `
-      <div class="page-title mb-1">Audit Trail</div>
-      <div class="page-sub mb-4">Hash-chained, append-only pipeline audit log</div>
-      <div class="card"><div class="empty-state">
-        <div class="empty-icon">≡</div>
-        <div class="empty-title">No audit events yet</div>
-        <div class="empty-desc">Pipeline activity will appear here once assessments are submitted.</div>
-      </div></div>`;
-    return;
-  }
-
-  const stages = [...new Set(events.map(e => e.stage))].sort();
-  const actions = [...new Set(events.map(e => e.action))].sort();
-
-  function renderAuditList(evts) {
-    return evts.map((e, i, arr) => `
-      <div class="audit-row">
-        <div class="audit-dot-col">
-          <div class="audit-dot-outer" style="border-color:${auditColor(e.stage)};background:${auditBg(e.stage)}"></div>
-          ${i < arr.length-1 ? '<div class="audit-line"></div>' : ''}
-        </div>
-        <div class="audit-content flex-1">
-          <div class="audit-action">${stageBadge(e.stage)} ${actionBadge(e.action)}</div>
-          <div class="audit-meta">
-            Doc: <span class="font-mono">${esc(e.doc_id.slice(0,16))}…</span>
-            · Actor: <strong>${esc(e.actor)}</strong>
-            · ${fmtDate(e.ts)} at ${fmtTime(e.ts)}
-          </div>
-          ${Object.keys(e.counts||{}).length ? `<div class="audit-hash text-xs mt-1">${Object.entries(e.counts).map(([k,v])=>`${k}: ${v}`).join(' · ')}</div>` : ''}
-        </div>
-        <div style="flex-shrink:0;font-size:10px;font-family:monospace;color:var(--text-muted);padding-left:12px;text-align:right">
-          ${esc(e.hash_prefix || '')}
-        </div>
-      </div>`).join('');
-  }
-
-  el.innerHTML = `
-    <div class="page-title mb-1">Audit Trail</div>
-    <div class="page-sub mb-4">${events.length} events · Hash-chained tamper-evident log</div>
-
-    <div class="alert alert-navy mb-4">
-      <span class="alert-icon">🔗</span>
-      <span>Each event's hash is computed over <code style="font-size:11px;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:3px">SHA-256(prev_hash ‖ ts ‖ stage ‖ doc_id ‖ actor ‖ action ‖ counts)</code>. Modifying any event breaks all subsequent hashes. <strong>Counts store entity type tallies only — never raw entity values.</strong></span>
-    </div>
-
-    <div class="card">
-      <div class="card-header" style="gap:10px">
-        <div class="flex-1">
-          <div class="card-title">Pipeline Events</div>
-        </div>
-        <div class="search-bar" style="width:240px">
-          <span>🔍</span>
-          <input id="audit-search" type="search" placeholder="Search events…" oninput="filterAudit()" aria-label="Search audit events">
-        </div>
-        <select class="form-input" style="width:140px" id="audit-stage" onchange="filterAudit()" aria-label="Filter by stage">
-          <option value="">All stages</option>
-          ${stages.map(s => `<option>${esc(s)}</option>`).join('')}
-        </select>
-        <select class="form-input" style="width:140px" id="audit-action" onchange="filterAudit()" aria-label="Filter by action">
-          <option value="">All actions</option>
-          ${actions.map(a => `<option>${esc(a)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="card-body" style="padding:12px 20px">
-        <div id="audit-list">${renderAuditList(events)}</div>
-      </div>
-      <div class="card-footer">
-        Showing ${events.length} events · Partial hashes shown for brevity · Raw entity values are never recorded
-      </div>
-    </div>
-  `;
-
-  window._renderAuditList = renderAuditList;
-}
-
-function filterAudit() {
-  const q     = document.getElementById('audit-search')?.value.toLowerCase() || '';
-  const stage = document.getElementById('audit-stage')?.value || '';
-  const action= document.getElementById('audit-action')?.value || '';
-  const filtered = state.auditEvents.filter(e => {
-    const text = `${e.stage} ${e.action} ${e.doc_id} ${e.actor}`.toLowerCase();
-    return (!q || text.includes(q)) && (!stage || e.stage === stage) && (!action || e.action === action);
-  });
-  const list = document.getElementById('audit-list');
-  if (!list || !window._renderAuditList) return;
-  list.innerHTML = filtered.length
-    ? window._renderAuditList(filtered)
-    : `<div class="empty-state" style="min-height:80px"><div class="empty-desc">No matching events.</div></div>`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SCREEN 8 — SERVICE HEALTH
-// ═══════════════════════════════════════════════════════════════════
-async function renderHealth(el) {
-  let services = {};
-  try { const d = await api('/dashboard'); services = d.services || {}; } catch(_) {}
-
-  const checks = await api('/healthz').catch(() => ({ status:'error' }));
-  const apiOk = checks.status === 'ok';
-
-  const svcList = [
-    { name:'FastAPI / REST API',          key:'api',      icon:'◎', desc:'Document upload, assessment management, and API key auth' },
-    { name:'Document Ingestion',          key:'ingestion',icon:'📄', desc:'PDF (PyMuPDF + OCR), DOCX (python-docx), XLSX (openpyxl)' },
-    { name:'PII Detection (Presidio)',    key:'pii',      icon:'🔍', desc:'Custom recognizers + pattern matching + entropy detection' },
-    { name:'Local NLP (spaCy)',           key:'nlp',      icon:'🧠', desc:'Dependency parse, relation graph, sentence-transformer embeddings' },
-    { name:'Policy Engine',              key:'policy',   icon:'📐', desc:'YAML rules → sensitivity decisions + monotonicity enforcement' },
-    { name:'Security Gate',              key:'gate',     icon:'⬡', desc:'Re-scan · Vault check · Entropy check · HMAC signing' },
-    { name:'AI Analysis (Ollama)',        key:'ollama',   icon:'🤖', desc:'llama3.1:8b on internal Docker network — FakeLLM in dev mode' },
-    { name:'Risk Engine',                key:'risk',     icon:'⚑', desc:'Severity scoring, control mapping, remediation recommendations' },
-    { name:'Workflow Engine',            key:'workflow', icon:'⇄', desc:'State machine with separation-of-duties enforcement' },
-    { name:'OneTrust Adapter',           key:'onetrust', icon:'📤', desc:'Mock adapter (default) · HTTP client for live environments' },
-    { name:'Database',                   key:'database', icon:'🗄', desc:'PostgreSQL 16 (assessments, vault, audit, outbox) — in-memory in dev' },
-    { name:'Audit Log',                  key:'audit',    icon:'🔗', desc:'Hash-chained append-only event log with chain verification' },
-  ];
-
-  const statusDot = (key) => {
-    const s = services[key];
-    if (!s || s === 'ok')     return '<span class="status-dot dot-green" style="display:inline-block"></span>';
-    if (s === 'mock')         return '<span class="status-dot dot-amber" style="display:inline-block"></span>';
-    if (s === 'in-memory')    return '<span class="status-dot dot-amber" style="display:inline-block"></span>';
-    return '<span class="status-dot dot-red" style="display:inline-block"></span>';
-  };
-  const statusLabel = (key) => {
-    const s = services[key];
-    if (!s || s === 'ok') return '<span class="badge badge-emerald">Operational</span>';
-    if (s === 'mock')     return '<span class="badge badge-amber">Mock</span>';
-    if (s === 'in-memory')return '<span class="badge badge-amber">In-memory</span>';
-    return '<span class="badge badge-red">Error</span>';
-  };
-
-  const rows = svcList.map(s => `
-    <tr>
-      <td>
-        <div class="flex items-center gap-2">
-          ${statusDot(s.key)}
-          <div>
-            <div class="font-bold">${s.icon} ${esc(s.name)}</div>
-            <div class="td-muted">${esc(s.desc)}</div>
-          </div>
-        </div>
-      </td>
-      <td>${statusLabel(s.key)}</td>
-      <td class="td-muted text-xs">${esc(services[s.key] || 'ok')}</td>
-    </tr>`).join('');
-
-  el.innerHTML = `
-    <div class="page-title mb-1">Service Health</div>
-    <div class="page-sub mb-4">Pipeline component status and configuration</div>
-
-    <div class="stat-grid mb-6">
-      <div class="stat-card ${apiOk ? 'accent-emerald':'accent-red'}">
-        <div class="stat-label">API Health</div>
-        <div class="stat-value" style="font-size:16px">${apiOk ? '✓ Healthy':'✗ Error'}</div>
-        <div class="stat-hint">/api/v1/healthz</div>
-      </div>
-      <div class="stat-card accent-emerald">
-        <div class="stat-label">Security Gate</div>
-        <div class="stat-value" style="font-size:16px">✓ Active</div>
-        <div class="stat-hint">Fail-closed · HMAC signing</div>
-      </div>
-      <div class="stat-card accent-amber">
-        <div class="stat-label">AI Analysis</div>
-        <div class="stat-value" style="font-size:16px">~ FakeLLM</div>
-        <div class="stat-hint">Ollama mock active</div>
-      </div>
-      <div class="stat-card accent-amber">
-        <div class="stat-label">Database</div>
-        <div class="stat-value" style="font-size:16px">~ In-memory</div>
-        <div class="stat-hint">No persistence between restarts</div>
-      </div>
-    </div>
-
-    <div class="card mb-6">
-      <div class="card-header"><div class="card-title">Component Status</div></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Component</th><th>Status</th><th>Notes</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="alert alert-navy mb-4">
-      <span class="alert-icon">ℹ</span>
-      <span>Credentials, signing keys, vault keys, and other secrets are loaded from environment variables only — never from config files, and never displayed in the UI. The vault key and HMAC signing key are not accessible to the frontend.</span>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><div class="card-title">Configuration Notes</div></div>
-      <div class="card-body">
-        <div class="alert alert-amber mb-3">
-          <span class="alert-icon">⚠</span>
-          <span><strong>Development mode:</strong> FakeLLM is active (use_fake_llm=True). Set TPRM_OLLAMA_URL and ensure Ollama is running for live AI analysis.</span>
-        </div>
-        <div class="alert alert-amber mb-3">
-          <span class="alert-icon">⚠</span>
-          <span><strong>In-memory storage:</strong> Assessments and audit events are not persisted across restarts. Configure TPRM_DATABASE_URL for PostgreSQL persistence.</span>
-        </div>
-        <div class="alert alert-blue">
-          <span class="alert-icon">ℹ</span>
-          <span><strong>OneTrust adapter:</strong> Mock mode is active by default. Set TPRM_ONETRUST_ADAPTER=http and provide credentials to enable live integration.</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  INITIALISATION
-// ═══════════════════════════════════════════════════════════════════
+// ===================================================================
+//  INIT
+// ===================================================================
 (async function init() {
-  // Keyboard nav for sidebar
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); } });
-  });
-  // Load initial screen
-  await renderScreen('dashboard');
+  await renderAssessments(document.getElementById('page-content'));
 })();
 </script>
 </body>

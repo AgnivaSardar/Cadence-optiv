@@ -9,6 +9,7 @@ Records per-stage timing.
 
 from __future__ import annotations
 
+import io
 import time
 import uuid
 from pathlib import Path
@@ -19,7 +20,14 @@ from tprm.common.audit import get_audit_log
 from tprm.common.config import get_settings
 from tprm.common.errors import GateViolation, SanitizationError
 from tprm.common.logging import get_logger
-from tprm.common.models import AssessmentResult, ClassifiedBlock, Finding, SensitivityLevel
+from tprm.common.models import (
+    AssessmentResult,
+    ClassifiedBlock,
+    DetectedPII,
+    Finding,
+    SanitizedBlock,
+    SensitivityLevel,
+)
 from tprm.gate.gate import process as gate_process
 from tprm.ingestion.parser import parse
 from tprm.nlp.classifier import classify_doc, classify_section
@@ -43,9 +51,113 @@ from tprm.workflow.state_machine import WorkflowStateMachine
 log = get_logger(__name__)
 
 
+def _preview_highlight_color(severity: str) -> tuple[float, float, float]:
+    """Return a visible highlight color based on finding criticality."""
+    return {
+        "Critical": (0.95, 0.25, 0.25),
+        "High": (1.0, 0.55, 0.1),
+        "Medium": (1.0, 0.85, 0.2),
+        "Low": (0.35, 0.8, 0.45),
+    }.get(severity, (1.0, 0.85, 0.2))
+
+
+def _build_pdf_preview(
+    file_path: Path,
+    blocks: list[Any],
+    entities: list[Any],
+    findings: list[Finding],
+) -> bytes | None:
+    """Create a PDF preview with severity-colored highlights."""
+    try:
+        import fitz
+
+        severity_by_block: dict[str, str] = {}
+        for finding in findings:
+            for block_id in finding.evidence_block_ids:
+                current = severity_by_block.get(block_id)
+                priorities = {"Low": 1, "Medium": 2, "High": 3, "Critical": 4}
+                if current is None or priorities.get(finding.severity, 0) > priorities.get(current, 0):
+                    severity_by_block[block_id] = finding.severity
+
+        preview = fitz.open(stream=file_path.read_bytes(), filetype="pdf")
+        for entity in entities:
+            block = next((b for b in blocks if b.id == entity.block_id), None)
+            if not block or block.page < 0 or block.page >= len(preview):
+                continue
+            page = preview[block.page]
+            for rect in page.search_for(entity.text):
+                color = _preview_highlight_color(
+                    severity_by_block.get(entity.block_id, "Medium")
+                )
+                highlight = page.add_highlight_annot(rect)
+                highlight.set_colors(stroke=color)
+                highlight.update()
+                overlay = page.add_rect_annot(rect)
+                overlay.set_colors(stroke=color, fill=color)
+                overlay.set_opacity(0.28)
+                overlay.update()
+        output = io.BytesIO()
+        preview.save(output)
+        preview.close()
+        return output.getvalue()
+    except (OSError, ValueError, RuntimeError) as exc:
+        log.warning("pdf_preview_generation_failed", error=str(exc))
+        return None
+
+
+def _build_masked_pdf_preview(
+    file_path: Path,
+    blocks: list[Any],
+    entities: list[Any],
+) -> bytes | None:
+    """Create a copy with detected values replaced by safe demonstration data."""
+    replacements = {
+        "EMAIL_ADDRESS": "demo@example.com",
+        "PHONE_NUMBER": "000-000-0000",
+        "IP_ADDRESS": "192.0.2.1",
+        "INTERNAL_HOSTNAME": "demo.internal",
+        "API_KEY": "DEMO_API_KEY",
+        "US_SSN": "000-00-0000",
+        "CREDIT_CARD": "4111-1111-1111-1111",
+        "IBAN_CODE": "GB00 DEMO 0000 0000",
+        "EMPLOYEE_ID": "DEMO-0000",
+        "PERSON": "Demo Person",
+        "DATE_OF_BIRTH": "01/01/2000",
+    }
+    try:
+        import fitz
+
+        masked = fitz.open(stream=file_path.read_bytes(), filetype="pdf")
+        changed_rects: list[tuple[int, Any]] = []
+        for entity in entities:
+            block = next((b for b in blocks if b.id == entity.block_id), None)
+            if not block or block.page < 0 or block.page >= len(masked):
+                continue
+            page = masked[block.page]
+            replacement = replacements.get(entity.entity_type, "[DEMO DATA]")
+            for rect in page.search_for(entity.text):
+                changed_rects.append((block.page, rect))
+                page.add_redact_annot(rect, text=replacement, fill=(1, 1, 0.75))
+        for page in masked:
+            page.apply_redactions()
+        for page_number, rect in changed_rects:
+            overlay = masked[page_number].add_rect_annot(rect)
+            overlay.set_colors(stroke=(0.95, 0.65, 0.05), fill=(1.0, 0.85, 0.2))
+            overlay.set_opacity(0.35)
+            overlay.update()
+        output = io.BytesIO()
+        masked.save(output)
+        masked.close()
+        return output.getvalue()
+    except (OSError, ValueError, RuntimeError) as exc:
+        log.warning("masked_pdf_generation_failed", error=str(exc))
+        return None
+
+
 async def run_assessment(
     file_path: Path,
     vendor_id: str,
+    display_filename: str | None = None,
     assessment_id: str | None = None,
     llm: LLMBackend | None = None,
     use_fake_llm: bool = False,
@@ -69,10 +181,17 @@ async def run_assessment(
     timings: dict[str, float] = {}
     settings = get_settings()
 
-    if use_fake_llm or llm is None:
+    if use_fake_llm:
         llm = llm or FakeLLM()
 
-    log.info("assessment_start", assessment_id=assessment_id, vendor_id=vendor_id, file=file_path.name)
+    log.info(
+        "assessment_start",
+        assessment_id=assessment_id,
+        vendor_id=vendor_id,
+        file=file_path.name,
+        llm_backend="fake" if use_fake_llm else "ollama",
+        llm_model=settings.llm_model,
+    )
 
     # ── Stage 1: Document Ingestion ───────────────────────────────────────────
     t0 = time.time()
@@ -94,6 +213,9 @@ async def run_assessment(
     for e in entities:
         entity_counts[e.entity_type] = entity_counts.get(e.entity_type, 0) + 1
     await audit.append("pii", doc.doc_id, "orchestrator", "detected", entity_counts)
+
+    preview_content: bytes | None = None
+    masked_preview_content: bytes | None = None
 
     # ── Stage 3: Local NLP ────────────────────────────────────────────────────
     t0 = time.time()
@@ -170,7 +292,7 @@ async def run_assessment(
             doc_type=doc_classification.label,
             raw_values_for_check=raw_values,
         )
-    except GateViolation as exc:
+    except GateViolation:
         await audit.append("gate", doc.doc_id, "orchestrator", "quarantine", {})
         raise
     timings["gate"] = time.time() - t0
@@ -190,6 +312,8 @@ async def run_assessment(
 
     # Build lookup: block_id -> (section_path, section_class, entity_types_found)
     block_index: dict[str, SanitizedBlock] = {b.block_id: b for b in sanitized_blocks}
+    source_block_index = {b.id: b for b in doc.blocks}
+    source_block_position = {b.id: i for i, b in enumerate(doc.blocks)}
     # Map block_id -> list of entity types that were actually detected there
     block_entity_types: dict[str, list[str]] = {}
     for cb in classified_blocks:
@@ -223,14 +347,29 @@ async def run_assessment(
                         if e.entity_type not in best_entity_types:
                             best_entity_types.append(e.entity_type)
 
-        # Fallback 2: if still empty, collect from ALL classified blocks
-        # (last resort — better than showing nothing)
-        if not best_entity_types:
-            for cb in classified_blocks:
-                if cb.entities:
-                    for e in cb.entities:
-                        if e.entity_type not in best_entity_types:
-                            best_entity_types.append(e.entity_type)
+        # Do not borrow entity types from unrelated sections. A finding must
+        # only display sensitive data that belongs to its evidence section.
+        evidence_block_ids = [
+            bid for bid in risk.evidence_block_ids
+            if bid in block_index and bid in source_block_index
+        ]
+        if best_block:
+            same_section_entity_ids = [
+                cb.block.id
+                for cb in classified_blocks
+                if cb.entities
+                and cb.ctx
+                and cb.ctx.section_class == best_block.section_class
+            ]
+            for bid in same_section_entity_ids:
+                if bid not in evidence_block_ids:
+                    evidence_block_ids.append(bid)
+        evidence_block_ids.sort(
+            key=lambda bid: (
+                source_block_index[bid].page,
+                source_block_position[bid],
+            )
+        )
 
         section_class = best_block.section_class if best_block else "unknown"
         section_path  = best_block.section_path  if best_block else []
@@ -260,12 +399,35 @@ async def run_assessment(
             risk_category=category,
             severity=severity.label,
             score=severity.score,
+            score_factors=severity.factors,
             controls=controls,
-            evidence_block_ids=risk.evidence_block_ids,
+            evidence_block_ids=evidence_block_ids,
             title=risk.title,
             description=explicit_desc,
             section_label=section_label_str,
             entity_types_found=best_entity_types,
+            exposure_count=sum(
+                len(entities_by_block.get(bid, []))
+                for bid in evidence_block_ids
+            ),
+            evidence_passages=[
+                {
+                    "block_id": bid,
+                    "page": source_block_index[bid].page,
+                    "section_label": " > ".join(source_block_index[bid].section_path),
+                    "text": block_index[bid].text_sanitized,
+                    "entity_types": block_entity_types.get(bid, []),
+                    "detected_entities": [
+                        {
+                            "entity_type": entity.entity_type,
+                            "value": entity.text,
+                        }
+                        for entity in entities_by_block.get(bid, [])
+                    ],
+                }
+                for bid in evidence_block_ids
+                if bid in block_index and bid in source_block_index
+            ],
         )
         finding.recommendation = recommend(finding)
         findings.append(finding)
@@ -274,6 +436,10 @@ async def run_assessment(
     await audit.append("risk", doc.doc_id, "orchestrator", "findings_generated", {
         "finding_count": len(findings),
     })
+
+    if doc.meta.doc_format == "pdf":
+        preview_content = _build_pdf_preview(file_path, doc.blocks, entities, findings)
+        masked_preview_content = _build_masked_pdf_preview(file_path, doc.blocks, entities)
 
     # ── Stage 10: Workflow ────────────────────────────────────────────────────
     state_machine = WorkflowStateMachine()
@@ -301,10 +467,13 @@ async def run_assessment(
         assessment_id=assessment_id,
         vendor_id=vendor_id,
         doc_id=doc.doc_id,
-        filename=file_path.name,
+        filename=display_filename or file_path.name,
         document_sensitivity=doc_sensitivity,
         gate_report=gate_payload.gate_report,
         findings=findings,
+        pii_exposure_count=len(entities),
+        preview_content=preview_content,
+        masked_preview_content=masked_preview_content,
         workflow_status=workflow_status,
         stage_timings=timings,
     )

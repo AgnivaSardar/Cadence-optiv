@@ -200,7 +200,6 @@ def _get_gate_analyzer() -> Any:
     _GATE_ANALYZER_LOADED = True
     try:
         from presidio_analyzer import AnalyzerEngine, RecognizerRegistry  # type: ignore[import-untyped]
-        from presidio_analyzer.nlp_engine import NoOpNlpEngine  # type: ignore[import-untyped]
         from presidio_analyzer.predefined_recognizers import (  # type: ignore[import-untyped]
             CreditCardRecognizer, EmailRecognizer, IpRecognizer,
             PhoneRecognizer, UsSsnRecognizer,
@@ -215,8 +214,12 @@ def _get_gate_analyzer() -> Any:
         from tprm.pii.recognizers import build_custom_recognizers
         for rec in build_custom_recognizers():
             registry.add_recognizer(rec)
-        noop_nlp = NoOpNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_sm"}])
-        _GATE_ANALYZER = AnalyzerEngine(registry=registry, nlp_engine=noop_nlp)
+        from tprm.pii.detector import _PatternOnlyNlpEngine
+
+        _GATE_ANALYZER = AnalyzerEngine(
+            registry=registry,
+            nlp_engine=_PatternOnlyNlpEngine(),
+        )
     except Exception as exc:
         log.warning("gate_rescan_analyzer_init_failed", error=str(exc)[:100])
         _GATE_ANALYZER = None

@@ -32,6 +32,7 @@ dependencies = [
     "numpy==1.26.4",
     # Crypto + security
     "cryptography==42.0.8",
+    "python-dotenv==1.0.1",
     # LLM
     "langchain>=0.3.0",
     "langchain-ollama>=0.2.0",
