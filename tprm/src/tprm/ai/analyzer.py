@@ -23,6 +23,7 @@ log = get_logger(__name__)
 
 _MAX_RETRIES = 2
 _MAX_TOKENS_PER_SECTION = 1200
+_OLLAMA_TIMEOUT_SECONDS = 30
 _MAX_CONCURRENT_SECTIONS = 3  # parallel LLM calls — avoids overwhelming a local Ollama
 
 # Sections with few blocks get merged together to cut LLM round-trips
@@ -216,7 +217,14 @@ async def analyze(
     settings = get_settings()
 
     if llm is None:
-        llm = _build_langchain_llm(settings)
+        try:
+            llm = _build_langchain_llm(settings)
+        except LLMError as exc:
+            log.warning(
+                "ollama_backend_unavailable_fallback_to_fake",
+                error=str(exc),
+            )
+            llm = FakeLLM()
 
     # ── Single combined call — Ollama is single-threaded so one well-formed  ──
     # call is always faster than N sequential section calls.
@@ -271,10 +279,8 @@ def _invoke_sync(
     valid_block_ids: set[str],
     max_retries: int,
 ) -> list[RawRisk]:
-    """Synchronous wrapper: try Ollama with a 30s timeout, fall back to FakeLLM."""
+    """Run the primary LLM with a bounded wait, then use deterministic fallback."""
     import concurrent.futures
-
-    _OLLAMA_TIMEOUT_SECONDS = 30
 
     def _run() -> list[RawRisk]:
         return asyncio.run(
@@ -287,19 +293,34 @@ def _invoke_sync(
             )
         )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_run)
-        try:
-            return future.result(timeout=_OLLAMA_TIMEOUT_SECONDS)
-        except concurrent.futures.TimeoutError:
-            log.warning(
-                "llm_timeout_fallback_to_fake",
-                timeout=_OLLAMA_TIMEOUT_SECONDS,
-            )
-            # Cancel the in-flight request best-effort (daemon thread will finish naturally)
-            future.cancel()
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_run)
+    fallback_reason = "empty_result"
+    try:
+        primary_items = future.result(timeout=_OLLAMA_TIMEOUT_SECONDS)
+        if primary_items:
+            return primary_items
+        log.warning("llm_empty_result_fallback_to_fake")
+    except concurrent.futures.TimeoutError:
+        fallback_reason = "timeout"
+        log.warning(
+            "llm_timeout_fallback_to_fake",
+            timeout=_OLLAMA_TIMEOUT_SECONDS,
+        )
+        future.cancel()
+    except Exception as exc:
+        fallback_reason = "error"
+        log.warning(
+            "llm_error_fallback_to_fake",
+            error_type=type(exc).__name__,
+            error=str(exc)[:200],
+        )
+    finally:
+        # Do not wait for a stalled network call before starting the fallback.
+        executor.shutdown(wait=False, cancel_futures=True)
 
     # FakeLLM fallback — extract section_class from user prompt to pick relevant response
+    log.info("llm_fake_fallback_started", reason=fallback_reason)
     fake = FakeLLM()
     return asyncio.run(
         _invoke_with_retry(
