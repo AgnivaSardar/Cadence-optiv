@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TPRM Platform &mdash; Privacy-Preserving Vendor Risk Assessment</title>
+<style>
+/* -- Reset & Variables -- */
+:root {
+  --navy-dark:      #0b192c;
+  --navy-header:    #0f172a;
+  --navy-surface:   #1e293b;
+  --emerald:        #10b981;
+  --emerald-dark:   #059669;
+  --emerald-light:  #d1fae5;
+  --emerald-hover:  #047857;
+  --red:            #ef4444;
+  --red-bg:         #fee2e2;
+  --red-border:     #fca5a5;
+  --amber:          #f59e0b;
+  --amber-bg:       #fef3c7;
+  --amber-border:   #fde68a;
+  --blue:           #3b82f6;
+  --blue-bg:        #eff6ff;
+  --blue-border:    #bfdbfe;
+  --purple:         #8b5cf6;
+  --purple-bg:      #f5f3ff;
+  --purple-border:  #ddd6fe;
+
+  --bg:             #ffffff;
+  --bg-alt:         #f8fafc;
+  --bg-subtle:      #f1f5f9;
+  --border:         #e2e8f0;
+  --border-strong:  #cbd5e1;
+
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #64748b;
+  --text-on-dark:   #f8fafc;
+  --text-on-dark-2: #94a3b8;
+
+  --header-h:       64px;
+  --radius-sm:      6px;
+  --radius:         8px;
+  --radius-lg:      12px;
+  --shadow-sm:      0 1px 2px rgba(0,0,0,.05);
+  --shadow:         0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:      0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.05);
+  --shadow-lg:      0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+  --font-mono:      ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.detected-pii-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.detected-pii {
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg-alt);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+
+/* -- Scrollbars -- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ===================================================================
+   CLEAN HEADER (Only Assessments & New Assessment, no operational pill, no green button)
+=================================================================== */
+.app-header {
+  width: 100%;
+  height: var(--header-h);
+  background: var(--navy-header);
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
+}
+.header-container {
+  max-width: 1440px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+/* Brand */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(16,185,129,.35);
+  flex-shrink: 0;
+}
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.2px;
+  line-height: 1.2;
+}
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-on-dark-2);
+  display: block;
+}
+
+/* Nav Links - ONLY Assessments and New Assessment */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-on-dark-2);
+  transition: all .15s ease;
+  user-select: none;
+}
+.nav-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,.07);
+}
+.nav-btn.active {
+  color: #fff;
+  background: rgba(16,185,129,.18);
+  border: 1px solid rgba(16,185,129,.35);
+}
+.nav-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(59,130,246,.3);
+  color: #93c5fd;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* ===================================================================
+   MAIN LAYOUT
+=================================================================== */
+.main {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.page-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  flex: 1;
+}
+
+/* ===================================================================
+   TYPOGRAPHY
+=================================================================== */
+.page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -.4px;
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* ===================================================================
+   CARDS & STATS
+=================================================================== */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-header {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.card-body { padding: 18px 20px; }
+.card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.stat-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.stat-info { flex: 1; }
+.stat-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+.stat-icon-wrap.green  { background: #ecfdf5; color: #059669; }
+.stat-icon-wrap.blue   { background: #eff6ff; color: #2563eb; }
+.stat-icon-wrap.red    { background: #fef2f2; color: #dc2626; }
+.stat-icon-wrap.amber  { background: #fffbeb; color: #d97706; }
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin-top: 6px;
+}
+.stat-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+/* ===================================================================
+   BUTTONS
+=================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--emerald); color: #fff; }
+.btn-primary:hover:not(:disabled) {
+  background: var(--emerald-hover);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.25);
+}
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-alt); }
+.btn-danger { background: var(--red-bg); color: #b91c1c; border: 1px solid var(--red-border); }
+.btn-danger:hover:not(:disabled) { background: #fecaca; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--bg-alt); color: var(--text-primary); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-full { width: 100%; }
+
+/* ===================================================================
+   BADGES & CHIPS
+=================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+.badge-green   { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.badge-amber   { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.badge-red     { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.badge-blue    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.badge-gray    { background: var(--bg-alt); color: var(--text-secondary); border: 1px solid var(--border); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+.chip-red    { background: var(--red-bg);   color: #991b1b; border: 1px solid var(--red-border); }
+.chip-orange { background: #fff7ed;         color: #c2410c; border: 1px solid #fed7aa; }
+.chip-amber  { background: var(--amber-bg); color: #92400e; border: 1px solid var(--amber-border); }
+.chip-green  { background: #ecfdf5;         color: #047857; border: 1px solid #a7f3d0; }
+.chip-blue   { background: var(--blue-bg);  color: #1e40af; border: 1px solid var(--blue-border); }
+.chip-gray   { background: var(--bg-alt);   color: var(--text-secondary); border: 1px solid var(--border); }
+
+/* ===================================================================
+   TABLES
+=================================================================== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg-alt); }
+.td-muted { color: var(--text-muted); font-size: 12px; }
+
+/* ===================================================================
+   FORMS & DROP ZONE
+=================================================================== */
+.form-group { margin-bottom: 14px; }
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.form-input:focus {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+}
+.form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  font-size: 13px;
+}
+.search-bar input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  flex: 1;
+  font-size: 13px;
+}
+.search-bar:focus-within {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+}
+
+.drop-zone {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 38px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--bg-alt);
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--emerald);
+  background: #f0fdf4;
+}
+.drop-zone input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.drop-zone-icon { color: var(--emerald); margin-bottom: 8px; }
+.drop-zone-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.drop-zone-text span { color: var(--emerald-dark); text-decoration: underline; }
+.drop-zone-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.drop-zone-file { font-size: 13px; color: var(--emerald-dark); font-weight: 700; margin-top: 8px; }
+
+/* ===================================================================
+   DEDICATED FILE CONTENT PAGE
+=================================================================== */
+.file-page-header {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.back-btn-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* Individual Finding Card in File Page */
+.finding-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+  transition: box-shadow .15s, border-color .15s;
+}
+.finding-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+.finding-card-top {
+  display: flex;
+  cursor: pointer;
+  user-select: none;
+}
+.finding-card-top:hover { background: var(--bg-alt); }
+.finding-stripe { width: 4px; flex-shrink: 0; }
+.sev-Critical .finding-stripe { background: var(--red); }
+.sev-High     .finding-stripe { background: #f97316; }
+.sev-Medium   .finding-stripe { background: var(--amber); }
+.sev-Low      .finding-stripe { background: var(--emerald); }
+
+.finding-body { flex: 1; padding: 14px 16px; min-width: 0; }
+.finding-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+.finding-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 7px; }
+.finding-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.finding-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+.finding-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 16px 14px 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.score-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+.sr-Critical { border-color: var(--red); color: var(--red); }
+.sr-High     { border-color: #f97316; color: #f97316; }
+.sr-Medium   { border-color: var(--amber); color: var(--amber); }
+.sr-Low      { border-color: var(--emerald); color: var(--emerald-dark); }
+.finding-chevron { color: var(--text-muted); transition: transform .2s; }
+.finding-chevron.open { transform: rotate(180deg); }
+
+/* Finding Detail Content */
+.finding-detail {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 18px 20px;
+  background: var(--bg-alt);
+}
+.finding-detail.open { display: block; }
+.file-analysis-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 40%);
+  gap: 20px;
+  align-items: start;
+}
+.findings-column { min-width: 0; }
+.document-preview-panel {
+  position: sticky;
+  top: calc(var(--header-h) + 18px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.document-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.document-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.document-preview-toolbar .document-preview-title { margin-bottom: 10px; }
+.preview-toggle { display: flex; gap: 4px; }
+.preview-mode-btn.active {
+  background: var(--navy-header);
+  color: #fff;
+}
+.document-focus-pulse {
+  animation: document-focus-pulse 1s ease-in-out 5;
+}
+@keyframes document-focus-pulse {
+  50% { outline: 4px solid #f59e0b; outline-offset: 3px; }
+}
+.document-preview-frame {
+  width: 100%;
+  height: min(78vh, 1080px);
+  min-height: 520px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #252525;
+}
+.document-preview-empty {
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.back-btn-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.file-page-compact-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.file-page-compact-title strong {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-section { margin-bottom: 16px; }
+.detail-section:last-child { margin-bottom: 0; }
+.detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===================================================================
+   PASSAGE-WISE PII HIGHLIGHT
+=================================================================== */
+.passage-card {
+  background: #fffcf0;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.passage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #b45309;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.passage-text {
+  color: #1e293b;
+  font-size: 13px;
+}
+.passage-block + .passage-block {
+  border-top: 1px solid #f3d98b;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.passage-block-meta {
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.pii-mark {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: baseline;
+  font-size: 12px;
+}
+.pii-mark-critical { background: #fecaca; color: #991b1b; border: 1px solid #f87171; }
+.pii-mark-high { background: #fed7aa; color: #9a3412; border: 1px solid #fb923c; }
+.pii-mark-medium { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+.pii-mark-low { background: #bbf7d0; color: #166534; border: 1px solid #4ade80; }
+.pii-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Plain English Boxes */
+.detail-why-box {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.detail-action-box {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  color: #1e40af;
+  align-items: flex-start;
+}
+
+/* ===================================================================
+   RISK SCORE FORMULATION BOX
+=================================================================== */
+.formulation-box {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.formulation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.formulation-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.formulation-eq {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-alt);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: #334155;
+}
+.score-meter {
+  position: relative;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+.score-meter-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width .6s ease;
+}
+.meter-Critical { background: var(--red); }
+.meter-High     { background: #f97316; }
+.meter-Medium   { background: var(--amber); }
+.meter-Low      { background: var(--emerald); }
+
+.score-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.formulation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.factor-cell {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.factor-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.factor-val { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+
+/* ===================================================================
+   PIPELINE PROGRESS
+=================================================================== */
+.pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+.pipe-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pipe-step .ps-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.pipe-step.ps-done { color: #047857; font-weight: 600; }
+.pipe-step.ps-done .ps-dot {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+.pipe-step.ps-active { color: var(--text-primary); font-weight: 700; }
+.pipe-step.ps-active .ps-dot {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+}
+.pipe-step .ps-label { flex: 1; }
+.pipe-step .ps-time  { font-size: 11px; font-family: var(--font-mono); }
+
+/* ===================================================================
+   EMPTY STATES & TOASTS
+=================================================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 10px;
+  padding: 32px;
+}
+.empty-icon { color: var(--text-muted); opacity: .45; }
+.empty-title { font-size: 15px; font-weight: 700; color: var(--text-secondary); }
+.empty-desc  { font-size: 13px; max-width: 340px; line-height: 1.5; }
+
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--navy-header);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  max-width: 360px;
+}
+.toast.toast-success { border-left: 3px solid var(--emerald); }
+.toast.toast-error   { border-left: 3px solid var(--red); }
+.toast.toast-warn    { border-left: 3px solid var(--amber); }
+
+/* Spinner */
+.spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+.spin-dark {
+  border-color: rgba(0,0,0,.1);
+  border-top-color: var(--emerald);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.flex-1 { flex: 1; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.font-bold { font-weight: 700; }
+.font-mono { font-family: var(--font-mono); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-red { color: var(--red); }
+.text-amber { color: var(--amber); }
+.text-green { color: var(--emerald-dark); }
+
+@media (max-width: 900px) {
+  .header-container { padding: 0 16px; }
+  .page-content { padding: 20px 16px; }
+  .file-analysis-layout { grid-template-columns: 1fr; }
+  .document-preview-panel { position: static; }
+  .document-preview-frame { height: 70vh; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================
+     HEADER NAVIGATION ONLY (Assessments + New Assessment)
+=================================================================== -->
+<header class="app-header">
+  <div class="header-container">
+    <!-- Brand: Logo + Name -->
+    <div class="brand" onclick="goto('assessments')" role="button" tabindex="0" aria-label="TPRM Platform Home">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">TPRM Platform</div>
+        <span class="brand-subtitle">Privacy-Preserving</span>
+      </div>
+    </div>
+
+    <!-- Navigation links - Only Assessments and New Assessment -->
+    <nav class="header-nav" role="navigation" aria-label="Main Navigation">
+      <button class="nav-btn active" id="nav-assessments" onclick="goto('assessments')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+        <span>Assessments</span>
+        <span class="nav-badge" id="badge-assessments">0</span>
+      </button>
+      <button class="nav-btn" id="nav-upload" onclick="goto('upload')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <span>New Assessment</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ===================================================================
+     MAIN CONTENT (SPA dynamic content page)
+=================================================================== -->
+<main class="main" id="main">
+  <div class="page-content" id="page-content">
+    <!-- Screens & file pages rendered here dynamically -->
+  </div>
+</main>
+
+<div id="toast-container" role="alert" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+const API_KEY = 'dev-insecure-key';
+const BASE    = '/api/v1';
+
+async function api(path, opts = {}) {
+  const r = await fetch(BASE + path, {
+    ...opts,
+    headers: { 'X-API-Key': API_KEY, ...(opts.headers || {}) },
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: r.statusText }));
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map(item => `${item.loc?.join('.') || 'request'}: ${item.msg}`).join('; ')
+      : err.detail || err.error;
+    throw Object.assign(new Error(detail || r.statusText || 'Request failed'), { status: r.status });
+  }
+  return r.json();
+}
+
+async function deleteAssessment(assessmentId, filename) {
+  filename = filename || state.assessments.find(a => a.assessment_id === assessmentId)?.filename || 'this file';
+  if (!window.confirm(`Delete "${filename}" and all of its analysis?`)) return;
+  try {
+    await api(`/assessments/${assessmentId}`, { method: 'DELETE' });
+    state.assessments = state.assessments.filter(a => a.assessment_id !== assessmentId);
+    toast('File and analysis deleted', 'success');
+    await renderAssessments(document.getElementById('page-content'));
+  } catch (error) {
+    toast(error.message, 'error');
+  }
+}
+
+const state = {
+  currentScreen: 'assessments',
+  assessments: [],
+  activeFileId: null,
+  previewMode: 'original'
+};
+
+// ===================================================================
+//  SVG ICONS (Crisp scalable vectors, no emojis)
+// ===================================================================
+const SVG_ICONS = {
+  shield: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  'shield-check': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  file: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+  folder: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
+  upload: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+  search: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>`,
+  alert: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>`,
+  'alert-circle': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
+  check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  x: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>`,
+  clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>`,
+  lock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  mail: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+  phone: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  user: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  'credit-card': `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>`,
+  building: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/></svg>`,
+  globe: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  server: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>`,
+  calendar: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>`,
+  pin: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`,
+  calculator: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>`,
+  chevron: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+  arrow: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  'arrow-left': `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`
+};
+
+function svg(name, size = 16, extraCls = '') {
+  let code = SVG_ICONS[name] || SVG_ICONS.file;
+  if (size !== 16) {
+    code = code.replace(/width="\d+"/, `width="${size}"`).replace(/height="\d+"/, `height="${size}"`);
+  }
+  if (extraCls) {
+    code = code.replace('<svg ', `<svg class="${extraCls}" `);
+  }
+  return code;
+}
+
+// ===================================================================
+//  ENTITY DISPLAY TYPES
+// ===================================================================
+const ETYPES = {
+  API_KEY:           { label: 'API Key',           chip: 'chip-red',    icon: 'key' },
+  PEM_PRIVATE_KEY:   { label: 'Private Key',       chip: 'chip-red',    icon: 'lock' },
+  CREDENTIAL_URL:    { label: 'URL Credentials',   chip: 'chip-red',    icon: 'lock' },
+  US_SSN:            { label: 'Social Security ID',chip: 'chip-red',    icon: 'user' },
+  CREDIT_CARD:       { label: 'Credit Card',       chip: 'chip-red',    icon: 'credit-card' },
+  IBAN_CODE:         { label: 'Bank IBAN',         chip: 'chip-red',    icon: 'building' },
+  BANK_ACCOUNT:      { label: 'Bank Account',      chip: 'chip-red',    icon: 'building' },
+  EMAIL_ADDRESS:     { label: 'Email Address',     chip: 'chip-orange', icon: 'mail' },
+  PHONE_NUMBER:      { label: 'Phone Number',      chip: 'chip-orange', icon: 'phone' },
+  PERSON:            { label: 'Personnel Name',    chip: 'chip-orange', icon: 'user' },
+  IP_ADDRESS:        { label: 'Internal IP',       chip: 'chip-amber',  icon: 'globe' },
+  INTERNAL_HOSTNAME: { label: 'Server Hostname',   chip: 'chip-amber',  icon: 'server' },
+  EMPLOYEE_ID:       { label: 'Employee ID',       chip: 'chip-amber',  icon: 'user' },
+  DATE_OF_BIRTH:     { label: 'Date of Birth',     chip: 'chip-red',    icon: 'calendar' },
+  CONTRACT_NUMBER:   { label: 'Contract Ref',      chip: 'chip-blue',   icon: 'file' },
+  MAC_ADDRESS:       { label: 'Network MAC',       chip: 'chip-amber',  icon: 'server' },
+};
+
+function entityChip(t) {
+  const d = ETYPES[t] || { label: t.replace(/_/g,' '), chip:'chip-gray', icon:'alert' };
+  return `<span class="chip ${d.chip}">${svg(d.icon, 13)} ${esc(d.label)}</span>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function tokenLabel(type) {
+  return ETYPES[type]?.label || String(type || '').replace(/_/g, ' ');
+}
+function scrubTokenText(text) {
+  return String(text || '').replace(/<<([A-Z_]+)_[a-zA-Z0-9]+>>/g, (_match, type) => `[${tokenLabel(type)}]`);
+}
+function fmtDate(iso) {
+  if (!iso) return '&mdash;';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function sevBadge(sev) {
+  const cls = { Critical:'badge-red', High:'badge-red', Medium:'badge-amber', Low:'badge-green' }[sev] || 'badge-gray';
+  const icon = { Critical:'alert-circle', High:'alert', Medium:'alert', Low:'check' }[sev] || 'file';
+  return `<span class="badge ${cls}">${svg(icon, 12)} ${esc(sev)}</span>`;
+}
+function sensitivityBadge(s) {
+  const map = { RESTRICTED:'badge-red', CONFIDENTIAL:'badge-amber', INTERNAL:'badge-blue', PUBLIC:'badge-green' };
+  return `<span class="badge ${map[s]||'badge-gray'}">${esc(s)}</span>`;
+}
+function toast(msg, type = 'success', duration = 4000) {
+  const c = document.getElementById('toast-container');
+  const icon = type === 'success' ? svg('check', 16) : svg('alert-circle', 16);
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${icon}</span><span>${esc(msg)}</span>`;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, duration);
+}
+
+// ===================================================================
+//  PASSAGE HIGHLIGHTER (PII highlighted passage-wise)
+// ===================================================================
+function highlightPIIInPassage(text, entityTypes = [], detectedEntities = [], severity = 'Medium') {
+  if (!text) return '';
+  let safe = esc(text);
+  const markClass = `pii-mark-${String(severity).toLowerCase()}`;
+
+  [...detectedEntities]
+    .sort((a, b) => String(b.value || '').length - String(a.value || '').length)
+    .forEach(entity => {
+      if (!entity.value) return;
+      const escapedValue = esc(entity.value);
+      const escapedPattern = escapedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      safe = safe.replace(
+        new RegExp(escapedPattern, 'g'),
+        `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span class="pii-val">${escapedValue}</span></mark>`
+      );
+    });
+
+  safe = safe.replace(/&lt;&lt;([A-Z_]+)_([a-zA-Z0-9]+)&gt;&gt;/g, (_match, type) => {
+    return `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span class="pii-val">${esc(tokenLabel(type))}</span></mark>`;
+  });
+
+  safe = safe.replace(/\[REDACTED:([A-Z_]+)\]/g, (match, type) => {
+    const label = (ETYPES[type]?.label || type).replace(/_/g, ' ');
+    return `<mark class="pii-mark ${markClass}">${svg('lock', 12)} <span class="pii-val">[Protected: ${esc(label)}]</span></mark>`;
+  });
+  safe = safe.replace(/\[HOST:[^\]]+\]/gi, () => {
+    return `<mark class="pii-mark ${markClass}">${svg('server', 12)} <span class="pii-val">[Protected: Internal Hostname]</span></mark>`;
+  });
+
+  safe = safe.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, (match) => {
+    return `<mark class="pii-mark ${markClass}">${svg('mail', 12)} <span class="pii-val">${match}</span></mark>`;
+  });
+
+  const phrasePatterns = {
+    'API_KEY': ['api key', 'secret credential', 'secret key', 'access token'],
+    'PEM_PRIVATE_KEY': ['private key', 'cryptographic key'],
+    'CREDENTIAL_URL': ['credential url', 'password in url'],
+    'US_SSN': ['social security number', 'ssn'],
+    'CREDIT_CARD': ['credit card', 'payment card', 'card number'],
+    'IBAN_CODE': ['bank account', 'iban'],
+    'BANK_ACCOUNT': ['bank account', 'account number'],
+    'EMAIL_ADDRESS': ['email address', 'email addresses', 'contact email'],
+    'PHONE_NUMBER': ['phone number', 'phone numbers', 'direct phone'],
+    'PERSON': ["person's name", "employee names"],
+    'IP_ADDRESS': ['internal ip', 'ip address'],
+    'INTERNAL_HOSTNAME': ['server hostname', 'internal server'],
+    'EMPLOYEE_ID': ['employee id', 'staff id'],
+    'DATE_OF_BIRTH': ['date of birth', 'birth date'],
+    'CONTRACT_NUMBER': ['contract number', 'purchase order'],
+    'MAC_ADDRESS': ['mac address', 'hardware address']
+  };
+
+  entityTypes.forEach(t => {
+    const phrases = phrasePatterns[t] || [];
+    phrases.forEach(phrase => {
+      const re = new RegExp(`\\b(${phrase})\\b`, 'gi');
+      safe = safe.replace(re, `<mark class="pii-mark ${markClass}">${svg('alert', 12)} <span>$1</span></mark>`);
+    });
+  });
+
+  return safe;
+}
+
+function simpleRecommendedAction(finding) {
+  const category = String(finding.risk_category || '').replace(/_/g, ' ').toLowerCase();
+  if (category.includes('access')) return 'Ask the vendor to limit access to only the people who need it and review access regularly.';
+  if (category.includes('encryption')) return 'Ask the vendor to protect this information when it is stored and sent.';
+  if (category.includes('incident')) return 'Ask the vendor to keep a clear plan for handling and reporting security incidents.';
+  if (category.includes('privacy')) return 'Ask the vendor to remove information they do not need and keep only what is required.';
+  return 'Ask the vendor to remove or hide the sensitive information before sharing this document.';
+}
+
+// ===================================================================
+//  NAVIGATION (Only Assessments and New Assessment)
+// ===================================================================
+function goto(screen, data) {
+  state.currentScreen = screen;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`nav-${screen}`)?.classList.add('active');
+  renderScreen(screen, data);
+}
+
+async function renderScreen(screen, data) {
+  const el = document.getElementById('page-content');
+  el.innerHTML = `<div class="empty-state"><div class="spin spin-dark" style="width:36px;height:36px;border-width:3px"></div><div class="empty-title mt-3">Loading&hellip;</div></div>`;
+  try {
+    switch (screen) {
+      case 'assessments': await renderAssessments(el); break;
+      case 'upload':      renderUpload(el); break;
+      case 'file-detail': await renderFilePageById(data, el); break;
+      default: await renderAssessments(el);
+    }
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">${svg('alert-circle', 40)}</div><div class="empty-title">Error loading data</div><div class="empty-desc">${esc(e.message)}</div><button class="btn btn-secondary mt-3" onclick="goto('assessments')">Back to Assessments</button></div>`;
+  }
+}
+
+// ===================================================================
+//  ASSESSMENTS SCREEN (List of files; If empty, embedded upload UI)
+// ===================================================================
+async function renderAssessments(el) {
+  const list = await api('/assessments').catch(() => []);
+  state.assessments = list;
+  document.getElementById('badge-assessments').textContent = list.length;
+
+  // IF NO FILES: Show upload UI directly!
+  if (list.length === 0) {
+    el.innerHTML = `
+      <div class="mb-4">
+        <div class="page-title">Assessments</div>
+        <div class="page-sub">Upload a vendor document to begin privacy-preserving risk assessment</div>
+      </div>
+      <div style="max-width:680px;margin:0 auto">
+        ${buildUploadCardHTML('upload-assess')}
+      </div>
+    `;
+    wireDropZone('upload-assess');
+    return;
+  }
+
+  // IF FILES EXIST: Show list of files with each file's individual counts
+  const rows = list.map(a => `
+    <tr style="cursor:pointer" onclick="viewFilePage('${esc(a.assessment_id)}')">
+      <td>
+        <div class="font-bold flex items-center gap-2">
+          <span style="color:var(--emerald)">${svg('file', 18)}</span>
+          <span>${esc(a.filename)}</span>
+        </div>
+        <div class="td-muted" style="margin-left:26px">Vendor: <strong>${esc(a.vendor_id)}</strong></div>
+      </td>
+      <td>${sensitivityBadge(a.sensitivity)}</td>
+      <td>
+        <div class="flex items-center gap-2">
+          ${a.finding_count === 0
+            ? `<span class="badge badge-green">${svg('check',12)} Clean</span>`
+            : a.high_critical > 0
+              ? `<span class="badge badge-red">${svg('alert-circle',12)} ${a.high_critical} High/Crit</span>`
+              : `<span class="badge badge-amber">${svg('alert',12)} Needs Review</span>`}
+          <span class="td-muted">${a.finding_count} issue${a.finding_count !== 1 ? 's' : ''}</span>
+        </div>
+      </td>
+      <td class="td-muted">${fmtDate(a.created_at)}</td>
+      <td style="text-align:right">
+        <div class="flex items-center justify-end gap-2">
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();viewFilePage('${esc(a.assessment_id)}')">
+            View File Analysis ${svg('arrow', 12)}
+          </button>
+          <button class="btn btn-danger btn-sm" title="Delete file and analysis" onclick="event.stopPropagation();deleteAssessment('${esc(a.assessment_id)}')">
+            ${svg('x', 12)} Delete
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="mb-4">
+      <div class="page-title">Assessments</div>
+      <div class="page-sub">${list.length} evaluated vendor document${list.length !== 1 ? 's' : ''}</div>
+    </div>
+
+    <!-- Files Table -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <div class="search-bar flex-1" style="max-width:380px">
+          ${svg('search', 15)}
+          <input id="file-search" type="search" placeholder="Search by file or vendor name&hellip;" oninput="filterFiles()">
+        </div>
+        <select class="form-input" style="width:160px" id="file-filter-sens" onchange="filterFiles()">
+          <option value="">All sensitivity</option>
+          <option>RESTRICTED</option><option>CONFIDENTIAL</option><option>INTERNAL</option><option>PUBLIC</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Document / Vendor</th><th>Sensitivity</th><th>Risks Identified</th><th>Evaluated Date</th><th></th></tr></thead>
+          <tbody id="files-table-body">${rows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Quick upload another document section -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">${svg('upload', 16)} Assess Another Document</div></div>
+      <div class="card-body" style="max-width:680px">
+        ${buildUploadCardHTML('upload-assess-sub')}
+      </div>
+    </div>
+  `;
+
+  wireDropZone('upload-assess-sub');
+}
+
+function filterFiles() {
+  const q   = document.getElementById('file-search')?.value.toLowerCase() || '';
+  const sen = document.getElementById('file-filter-sens')?.value || '';
+  const rows = document.querySelectorAll('#files-table-body tr');
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    const matchQ   = !q   || text.includes(q);
+    const matchSen = !sen || text.includes(sen.toLowerCase());
+    row.style.display = (matchQ && matchSen) ? '' : 'none';
+  });
+}
+
+// ===================================================================
+//  DEDICATED FILE CONTENT PAGE (No reload, file-specific metrics)
+// ===================================================================
+async function viewFilePage(assessmentId) {
+  state.activeFileId = assessmentId;
+  const el = document.getElementById('page-content');
+  el.innerHTML = `<div class="empty-state"><div class="spin spin-dark" style="width:36px;height:36px;border-width:3px"></div><div class="empty-title mt-3">Loading file analysis&hellip;</div></div>`;
+  await renderFilePageById(assessmentId, el);
+}
+
+async function renderFilePageById(assessmentId, el) {
+  const [detail, findings] = await Promise.all([
+    api(`/assessments/${assessmentId}`),
+    api(`/assessments/${assessmentId}/findings`),
+  ]);
+
+  renderFilePage(detail, findings, el);
+}
+
+function renderFilePage(detail, findings, targetEl = null) {
+  const el = targetEl || document.getElementById('page-content');
+  const critN = findings.filter(f => f.severity === 'Critical').length;
+  const highN = findings.filter(f => f.severity === 'High').length;
+  const medN  = findings.filter(f => f.severity === 'Medium').length;
+  const lowN  = findings.filter(f => f.severity === 'Low').length;
+  const totalPIICount = detail.pii_exposure_count ?? findings.reduce((acc, f) => acc + (f.exposure_count || 0), 0);
+  const orderedFindings = [...findings].sort((a, b) => {
+    const pageA = Math.min(...(a.evidence_passages || []).map(p => Number(p.page) || 0), Number.MAX_SAFE_INTEGER);
+    const pageB = Math.min(...(b.evidence_passages || []).map(p => Number(p.page) || 0), Number.MAX_SAFE_INTEGER);
+    return pageA - pageB || b.score - a.score;
+  });
+  const findingCardsHtml = orderedFindings.length
+    ? orderedFindings.map((f, i) => buildFindingCard(f, `f-${i}`, detail.filename)).join('')
+    : `<div class="card"><div class="empty-state"><div class="empty-icon">${svg('check', 44)}</div><div class="empty-title">Clean Document</div><div class="empty-desc">No sensitive data or security risks identified in this file.</div></div></div>`;
+
+  el.innerHTML = `
+    <div class="back-btn-bar">
+      <button class="btn btn-secondary btn-sm" onclick="goto('assessments')">
+        ${svg('arrow-left', 14)} <span>Back to all files</span>
+      </button>
+      <div class="file-page-compact-title">
+        <strong>${esc(detail.filename)}</strong>
+        <span>Vendor: ${esc(detail.vendor_id)}</span>
+      </div>
+    </div>
+    <div class="stat-grid mb-4">
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Critical Findings</div><div class="stat-value text-red">${critN}</div><div class="stat-hint">Score &ge; 75 in this file</div></div><div class="stat-icon-wrap red">${svg('alert-circle', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">High Findings</div><div class="stat-value text-amber">${highN}</div><div class="stat-hint">Score 50-74 in this file</div></div><div class="stat-icon-wrap amber">${svg('alert', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Medium Findings</div><div class="stat-value">${medN}</div><div class="stat-hint">Score 25-49 in this file</div></div><div class="stat-icon-wrap blue">${svg('clock', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Low Findings</div><div class="stat-value text-green">${lowN}</div><div class="stat-hint">Score &lt; 25 in this file</div></div><div class="stat-icon-wrap green">${svg('check', 20)}</div></div>
+      <div class="stat-card"><div class="stat-info"><div class="stat-label">Sensitive Data Exposures</div><div class="stat-value" style="color:var(--purple)">${totalPIICount}</div><div class="stat-hint">Identified PII tokens in this file</div></div><div class="stat-icon-wrap" style="background:#f5f3ff;color:var(--purple)">${svg('shield-check', 20)}</div></div>
+    </div>
+    <div class="mb-3"><div class="section-title mb-2">Detailed Findings for ${esc(detail.filename)}</div></div>
+    <div class="file-analysis-layout">
+      <div class="findings-column">
+        <div id="file-findings-list">${findingCardsHtml}</div>
+      </div>
+      <aside class="document-preview-panel">
+        <div class="document-preview-toolbar">
+          <div class="document-preview-title">${svg('file', 14)} Document preview</div>
+          <div class="preview-toggle" role="group" aria-label="Document preview mode">
+            <button class="btn btn-secondary btn-sm preview-mode-btn active" data-preview-mode="original" onclick="switchPreviewMode('${esc(detail.assessment_id)}', '${esc(detail.filename)}', 'original')">Original</button>
+            <button class="btn btn-secondary btn-sm preview-mode-btn" data-preview-mode="masked" onclick="switchPreviewMode('${esc(detail.assessment_id)}', '${esc(detail.filename)}', 'masked')">Masked</button>
+          </div>
+        </div>
+        <div id="document-preview-content" class="document-preview-empty">Loading document preview&hellip;</div>
+      </aside>
+    </div>
+  `;
+
+  state.previewMode = 'original';
+  loadDocumentPreview(detail.assessment_id, detail.filename, 'original');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function switchPreviewMode(assessmentId, filename, mode) {
+  state.previewMode = mode;
+  document.querySelectorAll('.preview-mode-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.previewMode === mode);
+  });
+  await loadDocumentPreview(assessmentId, filename, mode);
+}
+
+async function loadDocumentPreview(assessmentId, filename, mode = 'original', page = null) {
+  const target = document.getElementById('document-preview-content');
+  if (!target) return;
+  if (!String(filename || '').toLowerCase().endsWith('.pdf')) {
+    target.textContent = 'Preview is available for PDF files. Use the highlighted passages for this document.';
+    return;
+  }
+  try {
+    const response = await fetch(`${BASE}/assessments/${assessmentId}/document?mode=${mode}`, {
+      headers: { 'X-API-Key': API_KEY },
+    });
+    if (!response.ok) throw new Error('Unable to load document preview');
+    const url = URL.createObjectURL(await response.blob());
+    target.className = '';
+    target.innerHTML = `<iframe class="document-preview-frame" title="PDF preview of ${esc(filename)}" src="${url}#toolbar=0&navpanes=0&scrollbar=1&statusbar=0&messages=0&view=FitH${page !== null ? `&page=${page + 1}` : ''}"></iframe>`;
+  } catch (error) {
+    target.textContent = error.message;
+  }
+
+}
+
+function focusFindingInDocument(page) {
+  const frame = document.querySelector('.document-preview-frame');
+  if (!frame) return;
+  const currentUrl = new URL(frame.src);
+  currentUrl.hash = `toolbar=0&navpanes=0&scrollbar=1&statusbar=0&messages=0&view=FitH&page=${Number(page) + 1}`;
+  frame.classList.remove('document-focus-pulse');
+  void frame.offsetWidth;
+  frame.classList.add('document-focus-pulse');
+  frame.src = currentUrl.toString();
+  setTimeout(() => frame.classList.remove('document-focus-pulse'), 5000);
+}
+
+// ===================================================================
+//  FINDING CARD BUILDER
+// ===================================================================
+function buildFindingCard(f, uid, filename = '') {
+  const etypes = (f.entity_types_found || []);
+  const chips = etypes.slice(0, 4).map(entityChip).join('');
+  const more = etypes.length > 4 ? `<span class="text-xs text-muted">+${etypes.length - 4} more</span>` : '';
+  const loc = f.section_label ? `<div class="finding-location">${svg('pin', 12)} ${esc(f.section_label)}</div>` : '';
+
+  const desc = f.description || '';
+  const sentRx = /[^.!?]+[.!?]+/g;
+  const sents = (desc.match(sentRx) || [desc]).map(s => s.trim()).filter(Boolean);
+  const passages = f.evidence_passages || [];
+  const firstPage = passages.length ? Number(passages[0].page) || 0 : 0;
+  const passageExcerpt = passages.map(p => p.text).filter(Boolean).join('\n\n') || sents[0] || desc;
+  const summaryExcerpt = scrubTokenText(passageExcerpt);
+  const whyReason = sents.length > 1 ? sents.slice(1, -1).join(' ').trim() || sents[1] : '';
+  const actionText = simpleRecommendedAction(f);
+
+  const highlightedPassage = passages.length
+    ? passages.map(p => `
+      <div class="passage-block">
+        <div class="passage-block-meta">Page ${esc(p.page)}${p.section_label ? ` &middot; ${esc(p.section_label)}` : ''}</div>
+        <div>${highlightPIIInPassage(p.text, p.entity_types || etypes, p.detected_entities || [], f.severity)}</div>
+      </div>`).join('')
+    : highlightPIIInPassage(passageExcerpt, etypes, [], f.severity);
+
+  const plainControls = (f.controls || []).map(c => {
+    const fw = esc(c.framework || 'Security Standard');
+    const nm = esc(c.name || c.ref || 'Access Control');
+    return `<span class="chip chip-gray">${svg('shield-check', 12)} ${fw}: ${nm}</span>`;
+  }).join('');
+
+  return `
+    <div class="finding-card sev-${esc(f.severity)}">
+      <div class="finding-card-top" onclick="toggleFinding('${uid}', ${firstPage})">
+        <div class="finding-stripe"></div>
+        <div class="finding-body">
+          ${loc}
+          ${chips || more ? `<div class="finding-chips">${chips}${more}</div>` : ''}
+          <div class="finding-title">${esc(f.title)}</div>
+          <div class="finding-desc">${esc(summaryExcerpt.slice(0, 140))}${summaryExcerpt.length > 140 ? '&hellip;' : ''}</div>
+        </div>
+        <div class="finding-right">
+          <div class="score-ring sr-${esc(f.severity)}">
+            ${f.score}<div style="font-size:8px;font-weight:400;color:var(--text-muted)">/100</div>
+          </div>
+          ${sevBadge(f.severity)}
+          <div class="finding-chevron" id="fc-${uid}">${svg('chevron', 14)}</div>
+        </div>
+      </div>
+
+      <div class="finding-detail" id="fd-${uid}">
+        <!-- 1. PASSAGE-WISE PII HIGHLIGHT -->
+        <div class="detail-section">
+          <div class="detail-label">${svg('file', 13)} Document Passage with Highlighted Sensitive Data</div>
+          <div class="passage-card">
+            <div class="passage-header">
+              <span>Section: ${esc(f.section_label || 'Document Body')}</span>
+              <span>Sensitive Items: ${f.exposure_count || etypes.length || 0} detected</span>
+            </div>
+            <div class="passage-text">${highlightedPassage}</div>
+          </div>
+        </div>
+
+        <!-- 2. NUMBER KA FORMULATION -->
+        <div class="formulation-box">
+          <div class="formulation-top">
+            <div class="formulation-title">
+              <span style="color:var(--blue)">${svg('calculator', 14)}</span>
+              <span>Risk Score Formulation</span>
+            </div>
+            <div class="formulation-eq">Score = Clamp(Likelihood &#215; Impact &#215; Control Gap &#215; 100, 0, 100)</div>
+          </div>
+
+          <div class="score-meter">
+            <div class="score-meter-fill meter-${esc(f.severity)}" style="width:${f.score}%"></div>
+          </div>
+          <div class="score-meter-labels">
+            <span>Low (0-24)</span>
+            <span>Medium (25-49)</span>
+            <span>High (50-74)</span>
+            <span class="font-bold text-red">Critical (&ge;75)</span>
+          </div>
+
+          <div class="formulation-grid">
+            <div class="factor-cell">
+              <div class="factor-label">Calculated Score</div>
+              <div class="factor-val font-mono">${f.score} / 100</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Severity Level</div>
+              <div class="factor-val">${esc(f.severity)}</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Data Category</div>
+              <div class="factor-val">${esc((f.risk_category||'').replace(/_/g,' '))}</div>
+            </div>
+            <div class="factor-cell">
+              <div class="factor-label">Action Priority</div>
+              <div class="factor-val ${f.severity==='Critical'||f.severity==='High'?'text-red':'text-green'}">
+                ${f.severity==='Critical'||f.severity==='High' ? 'Priority 1 (Urgent)' : 'Standard Review'}
+              </div>
+            </div>
+            <div class="score-explanation">
+              This score combines the risk likelihood, the possible impact, how much of the control is missing,
+              and the vendor importance. It is capped at 100.
+              ${f.score_factors ? `Values used: likelihood ${Number(f.score_factors.likelihood || 0).toFixed(2)},
+              impact ${Number(f.score_factors.impact || 0).toFixed(2)},
+              control gap ${Number(f.score_factors.control_gap_factor || 0).toFixed(2)},
+              vendor importance ${Number(f.score_factors.vendor_criticality || 0).toFixed(2)}.` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. WHY THIS IS A RISK -->
+        ${whyReason ? `
+        <div class="detail-section mt-3">
+          <div class="detail-label">${svg('alert', 13)} Why this is a risk</div>
+          <div class="detail-why-box">${esc(whyReason)}</div>
+        </div>` : ''}
+
+        <!-- 4. RECOMMENDED ACTION -->
+        <div class="detail-section mt-3">
+          <div class="detail-label">${svg('arrow', 13)} Recommended Action</div>
+          <div class="detail-action-box">
+            ${svg('mail', 16)}
+            <div>${esc(actionText)}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+function toggleFinding(uid, page = null) {
+  document.getElementById(`fd-${uid}`)?.classList.toggle('open');
+  document.getElementById(`fc-${uid}`)?.classList.toggle('open');
+  if (page !== null) focusFindingInDocument(page);
+}
+
+// ===================================================================
+//  NEW ASSESSMENT SCREEN (File Upload)
+// ===================================================================
+function renderUpload(el) {
+  el.innerHTML = `
+    <div class="mb-4">
+      <div class="page-title">New Assessment</div>
+      <div class="page-sub">Upload vendor documentation for privacy-preserving sensitive data scan</div>
+    </div>
+    <div style="max-width:680px;margin:0 auto">
+      ${buildUploadCardHTML('upload-page')}
+    </div>
+  `;
+  wireDropZone('upload-page');
+}
+
+function buildUploadCardHTML(prefix) {
+  const STEPS = [
+    { key:'ingestion',   label:'Reading & parsing document pages' },
+    { key:'pii',         label:'Identifying sensitive data (PII & keys)' },
+    { key:'nlp',         label:'Context & sentence relationship analysis' },
+    { key:'policy',      label:'Sensitivity classification' },
+    { key:'sanitize',    label:'Masking & protecting personal data' },
+    { key:'gate',        label:'Safe-zone security verification' },
+    { key:'ai_analysis', label:'AI Risk assessment' },
+    { key:'risk_engine', label:'Normalizing & scoring findings' },
+  ];
+
+  return `
+    <div class="card">
+      <div class="card-header"><div class="card-title">${svg('upload', 16)} Upload Document</div></div>
+      <div class="card-body">
+        <div class="drop-zone" id="${prefix}-dz">
+          <input type="file" id="${prefix}-fi" accept=".pdf,.docx,.xlsx">
+          <div class="drop-zone-icon">${svg('upload', 36)}</div>
+          <div class="drop-zone-text">Drop file here or <span>click to browse</span></div>
+          <div class="drop-zone-hint">PDF, Word (.docx), or Excel (.xlsx) &#183; Max 50 MB</div>
+          <div class="drop-zone-file" id="${prefix}-fn"></div>
+        </div>
+        <div class="form-group mt-3">
+          <label class="form-label" for="${prefix}-vid">Vendor name</label>
+          <input id="${prefix}-vid" class="form-input" type="text" placeholder="Vendor name (optional)">
+          <div class="form-hint">Company providing the document</div>
+        </div>
+        <div id="${prefix}-err"></div>
+        <button class="btn btn-primary btn-full mt-3" id="${prefix}-btn" disabled onclick="runUpload('${prefix}')">
+          <span id="${prefix}-btn-icon">${svg('search', 14)}</span>
+          <span id="${prefix}-btn-text">Start Assessment</span>
+        </button>
+      </div>
+      <div class="card-footer">
+        ${svg('shield-check', 13)} Raw personal data is detected and masked before any analysis occurs.
+      </div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="card mt-3" id="${prefix}-progress" style="display:none">
+      <div class="card-header"><div class="card-title">Scanning Pipeline</div></div>
+      <div class="card-body">
+        <div class="pipeline-steps">
+          ${STEPS.map(s => `
+            <div class="pipe-step" id="${prefix}-ps-${s.key}">
+              <div class="ps-dot">${svg('check', 11)}</div>
+              <div class="ps-label">${esc(s.label)}</div>
+              <div class="ps-time" id="${prefix}-ps-t-${s.key}"></div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireDropZone(prefix) {
+  const fi = document.getElementById(`${prefix}-fi`);
+  const dz = document.getElementById(`${prefix}-dz`);
+  if (!fi || !dz) return;
+  fi.addEventListener('change', () => fi.files[0] && pickFile(fi.files[0]));
+  ['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+    e.preventDefault(); dz.classList.remove('over');
+    if (ev === 'drop' && e.dataTransfer.files[0]) { fi.files = e.dataTransfer.files; pickFile(e.dataTransfer.files[0]); }
+  }));
+
+  function pickFile(f) {
+    document.getElementById(`${prefix}-fn`).textContent = 'Selected: ' + f.name;
+    document.getElementById(`${prefix}-btn`).disabled = false;
+  }
+}
+
+async function runUpload(prefix) {
+  const fi = document.getElementById(`${prefix}-fi`);
+  const vid = document.getElementById(`${prefix}-vid`).value.trim();
+  const file = fi.files[0];
+  if (!file) return;
+
+  const STEP_KEYS = ['ingestion','pii','nlp','policy','sanitize','gate','ai_analysis','risk_engine'];
+  let stepIdx = 0;
+  let ticker;
+
+  STEP_KEYS.forEach(k => {
+    document.getElementById(`${prefix}-ps-${k}`)?.classList.remove('ps-done','ps-active');
+    const t = document.getElementById(`${prefix}-ps-t-${k}`); if (t) t.textContent = '';
+  });
+
+  document.getElementById(`${prefix}-progress`).style.display = '';
+  document.getElementById(`${prefix}-btn`).disabled = true;
+  document.getElementById(`${prefix}-btn-icon`).innerHTML = '<span class="spin"></span>';
+  document.getElementById(`${prefix}-btn-text`).textContent = 'Scanning...';
+  document.getElementById(`${prefix}-err`).innerHTML = '';
+
+  ticker = setInterval(() => {
+    if (stepIdx > 0) document.getElementById(`${prefix}-ps-${STEP_KEYS[stepIdx-1]}`)?.classList.replace('ps-active','ps-done');
+    if (stepIdx < STEP_KEYS.length) document.getElementById(`${prefix}-ps-${STEP_KEYS[stepIdx]}`)?.classList.add('ps-active');
+    stepIdx++;
+  }, 1400);
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('vendor_id', vid);
+
+  try {
+    const r = await fetch('/api/v1/assessments', { method:'POST', headers:{'X-API-Key':API_KEY}, body:fd });
+    clearInterval(ticker);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: r.statusText }));
+      const detail = Array.isArray(err.detail)
+        ? err.detail.map(item => `${item.loc?.join('.') || 'request'}: ${item.msg}`).join('; ')
+        : err.detail || err.error;
+      throw new Error(detail || r.statusText || 'Scan failed');
+    }
+    const sum = await r.json();
+    const [detail, findings] = await Promise.all([
+      api(`/assessments/${sum.assessment_id}`),
+      api(`/assessments/${sum.assessment_id}/findings`),
+    ]);
+
+    toast(`Assessment complete: ${findings.length} findings formulated`, 'success');
+
+    // NAVIGATE DIRECTLY TO THIS FILE'S DEDICATED CONTENT PAGE (No reload!)
+    renderFilePage(detail, findings);
+  } catch(e) {
+    clearInterval(ticker);
+    toast(e.message, 'error');
+    document.getElementById(`${prefix}-err`).innerHTML = `
+      <div style="background:var(--red-bg);color:#991b1b;border:1px solid var(--red-border);padding:10px 14px;border-radius:var(--radius);font-size:12px;margin-top:8px">
+        ${svg('alert-circle', 14)} ${esc(e.message)}
+      </div>`;
+    document.getElementById(`${prefix}-btn`).disabled = false;
+    document.getElementById(`${prefix}-btn-icon`).innerHTML = svg('search', 14);
+    document.getElementById(`${prefix}-btn-text`).textContent = 'Start Assessment';
+  }
+}
+
+// ===================================================================
+//  INIT
+// ===================================================================
+(async function init() {
+  await renderAssessments(document.getElementById('page-content'));
+})();
+</script>
+</body>
+</html>
