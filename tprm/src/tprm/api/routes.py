@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.security import APIKeyHeader
 
 from tprm.common.audit import get_audit_log
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 router = APIRouter()
 _state_machines: dict[str, WorkflowStateMachine] = {}
 _assessments: dict[str, AssessmentResult] = {}
+_assessment_files: dict[str, tuple[bytes, bytes, str]] = {}
 # Track gate decisions per assessment: {assessment_id: {outcome, reason, ts, ...}}
 _gate_decisions: dict[str, dict[str, Any]] = {}
 
@@ -111,7 +113,10 @@ async def get_dashboard(
         "services": {
             "api": "ok",
             "gate": "ok",
-            "ollama": "mock",
+            "ollama": {
+                "configured": bool(get_settings().ollama_url),
+                "model": get_settings().llm_model,
+            },
             "onetrust": "mock",
             "database": "in-memory",
         },
@@ -153,19 +158,32 @@ async def list_assessments(
 @router.post("/assessments", response_model=dict[str, Any])
 async def create_assessment(
     file: UploadFile = File(...),  # noqa: B008
-    vendor_id: str = Form(...),
+    vendor_id: str = Form("unknown vendor"),
     _: str = Depends(_verify_api_key),
 ) -> dict[str, Any]:
     """Upload a vendor document and start an assessment."""
-    suffix = Path(file.filename or "upload").suffix
+    original_filename = Path(file.filename or "").name
+    suffix = Path(original_filename or "uploaded-document").suffix.lower()
+    if not original_filename:
+        original_filename = f"uploaded-document{suffix}"
+    vendor_id = vendor_id.strip() or "unknown vendor"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = Path(tmp.name)
 
     try:
-        result = await run_assessment(tmp_path, vendor_id=vendor_id, use_fake_llm=True)
+        result = await run_assessment(
+            tmp_path,
+            vendor_id=vendor_id,
+            display_filename=original_filename,
+        )
         _assessments[result.assessment_id] = result
+        _assessment_files[result.assessment_id] = (
+            result.preview_content or content,
+            result.masked_preview_content or result.preview_content or content,
+            suffix,
+        )
         _state_machines[result.assessment_id] = WorkflowStateMachine()
         _gate_decisions[result.assessment_id] = {
             "outcome": "approved" if result.gate_report.passed else "quarantined",
@@ -186,6 +204,7 @@ async def create_assessment(
             "status": result.workflow_status,
             "sensitivity": result.document_sensitivity.name,
             "finding_count": len(result.findings),
+            "pii_exposure_count": result.pii_exposure_count,
         }
     except UnsupportedFormat as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
@@ -211,6 +230,7 @@ async def get_assessment(
         "sensitivity": result.document_sensitivity.name,
         "workflow_status": result.workflow_status,
         "finding_count": len(result.findings),
+        "pii_exposure_count": result.pii_exposure_count,
         "stage_timings": result.stage_timings,
         "gate_report": {
             "passed": result.gate_report.passed,
@@ -248,9 +268,57 @@ async def get_findings(
             "controls": [c.model_dump() for c in f.controls],
             "created_at": f.created_at.isoformat(),
             "vendor_id": f.vendor_id,
+            "exposure_count": f.exposure_count,
+            "evidence_passages": [p.model_dump() for p in f.evidence_passages],
         }
         for f in result.findings
     ]
+
+
+@router.delete("/assessments/{assessment_id}", response_model=dict[str, str])
+async def delete_assessment(
+    assessment_id: str,
+    _: str = Depends(_verify_api_key),
+) -> dict[str, str]:
+    """Delete an assessment and all in-memory document/analysis data."""
+    if assessment_id not in _assessments:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    del _assessments[assessment_id]
+    _assessment_files.pop(assessment_id, None)
+    _state_machines.pop(assessment_id, None)
+    _gate_decisions.pop(assessment_id, None)
+    return {"assessment_id": assessment_id, "status": "deleted"}
+
+
+@router.get("/assessments/{assessment_id}/document")
+async def get_assessment_document(
+    assessment_id: str,
+    mode: str = "original",
+    _: str = Depends(_verify_api_key),
+) -> Response:
+    """Return the original or masked document preview."""
+    if mode not in {"original", "masked"}:
+        raise HTTPException(status_code=400, detail="mode must be original or masked")
+    document = _assessment_files.get(assessment_id)
+    if not document:
+        result = _assessments.get(assessment_id)
+        if result and result.preview_content:
+            document = (
+                result.preview_content,
+                result.masked_preview_content or result.preview_content,
+                Path(result.filename).suffix.lower(),
+            )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document preview not available")
+    original, masked, suffix = document
+    content = masked if mode == "masked" else original
+    media_type = {
+        ".pdf": "application/pdf",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }.get(suffix, "application/octet-stream")
+    return Response(content=content, media_type=media_type)
 
 
 @router.post("/assessments/{assessment_id}/transition", response_model=dict[str, Any])

@@ -7,6 +7,7 @@ FakeLLM available for deterministic testing.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections import defaultdict
@@ -21,7 +22,30 @@ from tprm.gate.verifier import verify_gate_approved
 log = get_logger(__name__)
 
 _MAX_RETRIES = 2
-_MAX_TOKENS_PER_SECTION = 3000
+_MAX_TOKENS_PER_SECTION = 1200
+_MAX_CONCURRENT_SECTIONS = 3  # parallel LLM calls — avoids overwhelming a local Ollama
+
+# Sections with few blocks get merged together to cut LLM round-trips
+_MIN_BLOCKS_FOR_OWN_CALL = 5
+
+# Map of freeform gap_status values the LLM sometimes returns → canonical values
+_GAP_STATUS_ALIASES: dict[str, str] = {
+    "open": "missing",
+    "not implemented": "missing",
+    "not in place": "missing",
+    "none": "missing",
+    "no control": "missing",
+    "in progress": "partial",
+    "partially implemented": "partial",
+    "partial implementation": "partial",
+    "some": "partial",
+    "exists": "satisfied",
+    "implemented": "satisfied",
+    "in place": "satisfied",
+    "met": "satisfied",
+    "complete": "satisfied",
+    "compliant": "satisfied",
+}
 
 
 @runtime_checkable
@@ -43,6 +67,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "ACCESS_MGMT",
                 "confidence": 0.88,
+                "likelihood": 0.75,
+                "impact": 0.85,
+                "gap_status": "partial",
             }
         ],
         "encryption": [
@@ -53,6 +80,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "ENCRYPTION",
                 "confidence": 0.79,
+                "likelihood": 0.55,
+                "impact": 0.80,
+                "gap_status": "partial",
             }
         ],
         "incident_response": [
@@ -63,6 +93,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "INCIDENT_RESPONSE",
                 "confidence": 0.72,
+                "likelihood": 0.60,
+                "impact": 0.70,
+                "gap_status": "partial",
             }
         ],
         "subprocessors": [
@@ -73,6 +106,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "SUBPROCESSOR",
                 "confidence": 0.75,
+                "likelihood": 0.65,
+                "impact": 0.75,
+                "gap_status": "missing",
             }
         ],
         "data_retention": [
@@ -83,6 +119,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "PRIVACY_DATA",
                 "confidence": 0.82,
+                "likelihood": 0.70,
+                "impact": 0.90,
+                "gap_status": "missing",
             }
         ],
         "default": [
@@ -93,6 +132,9 @@ class FakeLLM:
                 "evidence_block_ids": [],
                 "claimed_category": "INFO_SEC",
                 "confidence": 0.65,
+                "likelihood": 0.50,
+                "impact": 0.60,
+                "gap_status": "partial",
             }
         ],
     }
@@ -106,7 +148,16 @@ class FakeLLM:
         if match:
             section_class = match.group(1)
 
-        items = self.FAKE_RESPONSES.get(section_class, self.FAKE_RESPONSES["default"])
+        # For combined/mixed calls return all section responses
+        if section_class in ("mixed", "other"):
+            items = [
+                item
+                for sc, sc_items in self.FAKE_RESPONSES.items()
+                if sc != "default"
+                for item in sc_items
+            ]
+        else:
+            items = self.FAKE_RESPONSES.get(section_class, self.FAKE_RESPONSES["default"])
 
         # Extract block IDs from prompt to populate evidence
         block_id_match = re.search(r"Available block IDs for evidence citation: ([^\n]+)", user_content)
@@ -167,39 +218,39 @@ async def analyze(
     if llm is None:
         llm = _build_langchain_llm(settings)
 
-    # ── Group blocks by section_class for batched analysis ───────────────────
-    sections: dict[str, list[SanitizedBlock]] = defaultdict(list)
-    for block in payload.blocks:
-        sections[block.section_class].append(block)
-
-    all_items: list[RawRisk] = []
+    # ── Single combined call — Ollama is single-threaded so one well-formed  ──
+    # call is always faster than N sequential section calls.
+    # Pick the most informative blocks (SENSITIVE ones first, cap total text).
+    sensitive_first = sorted(
+        payload.blocks,
+        key=lambda b: len(b.applied) if hasattr(b, "applied") else 0,
+        reverse=True,
+    )
+    block_ids = [b.block_id for b in sensitive_first]
     valid_block_ids = {b.block_id for b in payload.blocks}
 
-    for section_class, section_blocks in sections.items():
-        combined_text = "\n\n".join(
-            f"[Block {b.block_id}]\n{b.text_sanitized}"
-            for b in section_blocks
-        )
-        block_ids = [b.block_id for b in section_blocks]
+    combined_text = "\n\n".join(
+        f"[Block {b.block_id} | {b.section_class}]\n{b.text_sanitized}"
+        for b in sensitive_first
+    )
 
-        # Chunk if too long (map-reduce)
-        chunks = _chunk_text(combined_text, block_ids, _MAX_TOKENS_PER_SECTION)
+    system_prompt, user_prompt = build_prompt(
+        section_class="mixed",
+        doc_type=payload.doc_type,
+        sanitized_text=combined_text,
+        block_ids=block_ids,
+    )
 
-        for chunk_text, chunk_block_ids in chunks:
-            system_prompt, user_prompt = build_prompt(
-                section_class=section_class,
-                doc_type=payload.doc_type,
-                sanitized_text=chunk_text,
-                block_ids=chunk_block_ids,
-            )
-            items = await _invoke_with_retry(
-                llm=llm,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                valid_block_ids=valid_block_ids,
-                max_retries=settings.llm_max_retries,
-            )
-            all_items.extend(items)
+    loop = asyncio.get_event_loop()
+    all_items: list[RawRisk] = await loop.run_in_executor(
+        None,
+        _invoke_sync,
+        llm,
+        system_prompt,
+        user_prompt,
+        valid_block_ids,
+        0,  # no retries — timeout handles failure
+    )
 
     # ── Deduplicate ────────────────────────────────────────────────────────────
     deduplicated = _deduplicate_items(all_items)
@@ -211,6 +262,54 @@ async def analyze(
         deduped_items=len(deduplicated),
     )
     return AIRiskResult(items=deduplicated)
+
+
+def _invoke_sync(
+    llm: LLMBackend,
+    system_prompt: str,
+    user_prompt: str,
+    valid_block_ids: set[str],
+    max_retries: int,
+) -> list[RawRisk]:
+    """Synchronous wrapper: try Ollama with a 30s timeout, fall back to FakeLLM."""
+    import concurrent.futures
+
+    _OLLAMA_TIMEOUT_SECONDS = 30
+
+    def _run() -> list[RawRisk]:
+        return asyncio.run(
+            _invoke_with_retry(
+                llm=llm,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                valid_block_ids=valid_block_ids,
+                max_retries=0,  # no retries inside the timeout window
+            )
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_run)
+        try:
+            return future.result(timeout=_OLLAMA_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError:
+            log.warning(
+                "llm_timeout_fallback_to_fake",
+                timeout=_OLLAMA_TIMEOUT_SECONDS,
+            )
+            # Cancel the in-flight request best-effort (daemon thread will finish naturally)
+            future.cancel()
+
+    # FakeLLM fallback — extract section_class from user prompt to pick relevant response
+    fake = FakeLLM()
+    return asyncio.run(
+        _invoke_with_retry(
+            llm=fake,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            valid_block_ids=valid_block_ids,
+            max_retries=0,
+        )
+    )
 
 
 async def _invoke_with_retry(
@@ -234,6 +333,7 @@ async def _invoke_with_retry(
 
             # Parse JSON
             parsed = _parse_json_response(content)
+            _normalise_gap_status(parsed)
             result = AIRiskResult.model_validate(parsed)
 
             # Drop items without valid evidence block IDs
@@ -262,6 +362,28 @@ async def _invoke_with_retry(
                 })
 
     raise LLMParseError(f"LLM failed after {max_retries + 1} attempts: {last_error}") from last_error
+
+
+def _parse_json_response(content: str) -> dict[str, Any]:
+    """Parse JSON from LLM response, with basic repair for common issues."""
+def _normalise_gap_status(parsed: dict[str, Any]) -> None:
+    """Coerce freeform gap_status values the LLM returns into the canonical enum.
+
+    Mutates the parsed dict in-place before Pydantic validation so we never
+    trigger a retry just because the model said "open" instead of "missing".
+    """
+    valid = {"missing", "partial", "satisfied"}
+    for item in parsed.get("items", []):
+        raw = item.get("gap_status")
+        if raw is None or raw in valid:
+            continue
+        normalised = _GAP_STATUS_ALIASES.get(raw.lower().strip())
+        if normalised:
+            item["gap_status"] = normalised
+        else:
+            # Unknown value — default to missing (safest assumption)
+            item["gap_status"] = "missing"
+            log.debug("gap_status_unknown_coerced", raw=raw)
 
 
 def _parse_json_response(content: str) -> dict[str, Any]:

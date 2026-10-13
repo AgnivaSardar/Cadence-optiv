@@ -22,6 +22,10 @@ class NormalisedRisk:
         ]
         self.claimed_category = raw.claimed_category
         self.confidence = raw.confidence
+        # LLM-assessed scoring signals (None when the LLM did not return them)
+        self.likelihood = raw.likelihood
+        self.impact = raw.impact
+        self.gap_status = raw.gap_status
 
 
 def extract(

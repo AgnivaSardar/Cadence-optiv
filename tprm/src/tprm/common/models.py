@@ -297,6 +297,10 @@ class RawRisk(BaseModel):
     evidence_block_ids: list[str]
     claimed_category: str
     confidence: float = Field(ge=0.0, le=1.0)
+    # LLM-assessed scoring signals — when present these replace YAML taxonomy defaults
+    likelihood: float | None = Field(default=None, ge=0.0, le=1.0)
+    impact: float | None = Field(default=None, ge=0.0, le=1.0)
+    gap_status: Literal["missing", "partial", "satisfied"] | None = None
 
 
 class AIRiskResult(BaseModel):
@@ -329,6 +333,7 @@ class Finding(BaseModel):
     risk_category: str
     severity: Literal["Low", "Medium", "High", "Critical"]
     score: int = Field(ge=0, le=100)
+    score_factors: dict[str, float] = Field(default_factory=dict)
     controls: list[ControlRef] = Field(default_factory=list)
     recommendation: str = ""
     evidence_block_ids: list[str] = Field(default_factory=list)
@@ -339,12 +344,32 @@ class Finding(BaseModel):
     description: str = ""
     section_label: str = ""    # e.g. '"Access Management"' or 'Encryption & Key Management section'
     entity_types_found: list[str] = Field(default_factory=list)  # e.g. ["API_KEY", "EMAIL_ADDRESS"]
+    exposure_count: int = 0
+    evidence_passages: list["EvidencePassage"] = Field(default_factory=list)
 
     def __repr__(self) -> str:  # noqa: D105
         return (
             f"Finding(id={self.id!r}, severity={self.severity!r}, "
             f"category={self.risk_category!r}, score={self.score})"
         )
+
+
+class EvidencePassage(BaseModel):
+    """Document passage and the PII spans detected within it."""
+
+    block_id: str
+    page: int
+    section_label: str = ""
+    text: str
+    entity_types: list[str] = Field(default_factory=list)
+    detected_entities: list["DetectedPII"] = Field(default_factory=list)
+
+
+class DetectedPII(BaseModel):
+    """A detected PII value shown in the authenticated assessment UI."""
+
+    entity_type: str
+    value: str
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -408,5 +433,8 @@ class AssessmentResult(BaseModel):
     document_sensitivity: SensitivityLevel
     gate_report: GateReport
     findings: list[Finding] = Field(default_factory=list)
+    pii_exposure_count: int = 0
+    preview_content: bytes | None = Field(default=None, exclude=True, repr=False)
+    masked_preview_content: bytes | None = Field(default=None, exclude=True, repr=False)
     workflow_status: str = "Draft"
     stage_timings: dict[str, float] = Field(default_factory=dict)  # stage -> seconds
